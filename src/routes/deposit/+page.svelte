@@ -52,7 +52,7 @@
       escrowId = newEscrowId;
       explorerUrl = result.explorerUrl;
 
-      escrowStore.update(s => ({ ...s, escrowId, encryptedTermsCid: encryptedCid }));
+      escrowStore.update(s => ({ ...s, escrowId, encryptedTermsCid: encryptedCid, sellerPublicKey: counterparty }));
 
       historyStore.add($userStore.publicKey, {
         type: 'deposit',
@@ -84,8 +84,8 @@
   </div>
 
   <div class="form-group">
-    <label for="counterparty">Seller Public Key (optional)</label>
-    <input type="text" id="counterparty" bind:value={counterparty} placeholder="G..." disabled={done} />
+    <label for="counterparty">Seller Public Key</label>
+    <input type="text" id="counterparty" bind:value={counterparty} placeholder="G... (funds go here on release)" disabled={done} />
   </div>
 
   <div class="form-group">

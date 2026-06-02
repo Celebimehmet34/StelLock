@@ -6,11 +6,13 @@ export const escrowStore = writable<{
 	evidenceHash: string;
 	ipfsCid: string;
 	encryptedTermsCid: string;
+	sellerPublicKey: string;
 }>({
 	escrowId: '',
 	evidenceHash: '',
 	ipfsCid: '',
-	encryptedTermsCid: ''
+	encryptedTermsCid: '',
+	sellerPublicKey: ''
 });
 
 // ── Transaction history ────────────────────────────────────────────────────────

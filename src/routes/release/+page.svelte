@@ -10,7 +10,7 @@
   const stored = get(escrowStore);
   let escrowId = $state(stored.escrowId || '');
   let expectedHash = $state(stored.evidenceHash || '');
-  let sellerPublicKey = $state('');
+  let sellerPublicKey = stored.sellerPublicKey || '';
   let files = $state<FileList | undefined>(undefined);
   let status = $state('');
   let matchStatus = $state('');
@@ -104,10 +104,12 @@
     <input type="text" id="expectedHash" bind:value={expectedHash} placeholder="Auto-filled from Deliver step" />
   </div>
 
-  <div class="form-group">
-    <label for="sellerKey">Seller Public Key</label>
-    <input type="text" id="sellerKey" bind:value={sellerPublicKey} placeholder="G... (seller's Stellar address)" />
-  </div>
+  {#if sellerPublicKey}
+    <div class="info-row">
+      <span class="info-label">Releasing to</span>
+      <span class="info-value">{sellerPublicKey.slice(0,8)}...{sellerPublicKey.slice(-6)}</span>
+    </div>
+  {/if}
 
   <div class="form-group">
     <label for="file">Downloaded Deliverable</label>
@@ -154,4 +156,7 @@
   .success-banner { width:100%; padding:1.2rem; background:linear-gradient(135deg,#45a29e,#66fcf1); color:#0b0c10; border-radius:12px; font-size:1.1rem; font-weight:700; text-align:center; box-sizing:border-box; }
   .explorer-link { display:block; margin-top:0.8rem; text-align:center; color:var(--secondary); font-size:0.9rem; font-weight:600; text-decoration:none; }
   .explorer-link:hover { text-decoration:underline; }
+  .info-row { display:flex; align-items:center; gap:0.8rem; margin-bottom:1.5rem; padding:0.8rem 1rem; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.08); border-radius:10px; }
+  .info-label { font-size:0.75rem; color:var(--primary); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; }
+  .info-value { font-size:0.82rem; font-family:monospace; color:var(--secondary); }
 </style>
