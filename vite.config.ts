@@ -17,5 +17,9 @@ export default defineConfig({
 	ssr: {
 		// Tell Vite to treat these as external in SSR — use Node's built-ins
 		noExternal: []
+	},
+	optimizeDeps: {
+		// snarkjs is heavy and uses commonjs/web-worker patterns — pre-bundle it
+		include: ['snarkjs']
 	}
 });

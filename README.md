@@ -89,6 +89,20 @@ Uygulama `http://localhost:5173` adresinde çalışacaktır. Önce **Register** 
 - **Sunucu tarafı kayıt:** `username → publicKey` eşlemesi `data/users.json` içinde tutulur. Kayıtta username benzersizliği kontrol edilir; girişte türetilen publicKey kayıtlıyla eşleşmezse giriş reddedilir (yanlış şifre / olmayan kullanıcı ayrımı yapılır).
 - **Escrow muhasebesi:** Her escrow `data/escrows.json` içinde `buyer / seller / amount / status` ile izlenir. Release yalnızca escrow'u fonlayan buyer tarafından yapılabilir, tam kilitlenen tutar gönderilir, çift release engellenir.
 
+## 🔬 Zero-Knowledge Katmanı (Circom + Groth16)
+
+AES şifrelemenin yanında, **gerçek bir zk-SNARK** katmanı eklendi: alıcı, escrow miktarının anlaşılan bir aralıkta olduğunu — miktarı ifşa etmeden — kanıtlayabiliyor.
+
+**Pipeline:**
+1. **Circom devresi** (`zk/circuits/amount_proof.circom`): `commitment = Poseidon(amount, salt)` **VE** `min ≤ amount ≤ max` kısıtlarını kodluyor.
+2. **Groth16 trusted setup** (snarkjs): powers-of-tau + circuit-specific zkey + verification key.
+3. **Tarayıcıda proof üretimi** (`src/lib/zk/prover.ts`): gizli miktar cihazdan hiç çıkmadan, ~270ms'de proof üretiliyor.
+4. **Sunucuda doğrulama** (`/api/zk/verify`): proof + public sinyaller (commitment, min, max) doğrulanıyor — sunucu miktarı asla görmüyor.
+
+**Demo:** `/zk` sayfası. Gizli miktar gir → tarayıcıda Groth16 proof üret → sunucuda doğrula. Aralık dışı miktar için devre kısıtı proof üretimini engelliyor (matematiksel garanti).
+
+**Sonraki adım (on-chain):** Şu an doğrulama sunucu tarafında (snarkjs). Stellar Protocol 22+ BLS12-381 host fonksiyonlarıyla bir Soroban Groth16 verifier kontratı yazılabilir — devre bn128 yerine bls12-381'e taşınır (circomlib Poseidon yerine alan-bağımsız bir taahhüt gerekir).
+
 ## ⚠️ Bilinen Sınırlamalar (Hackathon kapsamı)
 
 - **İmzalama sunucu tarafında:** Kullanıcı `secretKey`'i imzalama için sunucu endpoint'lerine gönderilir. Tarayıcıda Stellar SDK polyfill çakışması yaşandığı için bu yol seçildi. Üretimde imzalama tamamen istemci tarafında (veya gerçek Passkey/WebAuthn ile) yapılmalıdır.
