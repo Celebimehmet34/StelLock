@@ -24,6 +24,13 @@
   let encryptedCid = $state('');
   let loading = $state(false);
   let done = $state(false);
+  let copied = $state(false);
+
+  async function copyEscrowId() {
+    await navigator.clipboard.writeText(escrowId);
+    copied = true;
+    setTimeout(() => (copied = false), 2000);
+  }
 
   onMount(() => {
     if (!$userStore.isLoggedIn) goto('/login');
@@ -56,7 +63,7 @@
 
       status = 'Submitting to Stellar testnet...';
       const newEscrowId = 'esc_' + Math.random().toString(36).slice(2, 9);
-      const result = await tw.fundEscrow($userStore.secretKey, newEscrowId, termsHash, amount, counterparty);
+      const result = await tw.fundEscrow($userStore.secretKey, newEscrowId, termsHash, amount, counterparty, encryptedCid);
 
       escrowId = newEscrowId;
       explorerUrl = result.explorerUrl;
@@ -127,7 +134,20 @@
     {#if explorerUrl}
       <a href={explorerUrl} target="_blank" class="explorer-link">🔍 Verify on StellarExpert →</a>
     {/if}
-    <button onclick={() => goto('/deliver')} class="next-btn">Next → Deliver</button>
+
+    <div class="handoff-box">
+      <div class="handoff-title">📤 Share with your seller</div>
+      <p class="handoff-text">
+        Send this Escrow ID to your seller. They log in with their own account and
+        submit the work under <strong>Deliver</strong>. You'll come back to <strong>Release</strong> once they deliver.
+      </p>
+      <div class="escrow-id-row">
+        <code class="escrow-id">{escrowId}</code>
+        <button class="copy-btn" onclick={copyEscrowId}>{copied ? '✅ Copied' : '📋 Copy'}</button>
+      </div>
+    </div>
+
+    <a href="/deliver" class="demo-link">Demo: continue as the seller →</a>
   {/if}
 
   {#if status}
@@ -152,7 +172,15 @@
   .success-banner { width:100%; padding:1.2rem; background:linear-gradient(135deg,#45a29e,#66fcf1); color:#0b0c10; border-radius:12px; font-size:1.1rem; font-weight:700; text-align:center; box-sizing:border-box; }
   .explorer-link { display:block; margin-top:0.8rem; text-align:center; color:var(--secondary); font-size:0.9rem; font-weight:600; text-decoration:none; }
   .explorer-link:hover { text-decoration:underline; }
-  .next-btn { margin-top:1rem; background:linear-gradient(135deg,#1f2833,#45a29e); }
+  .handoff-box { margin-top:1.5rem; padding:1.2rem; background:rgba(102,252,241,0.05); border:1px solid rgba(102,252,241,0.2); border-radius:12px; }
+  .handoff-title { font-weight:700; color:var(--secondary); font-size:0.9rem; margin-bottom:0.5rem; }
+  .handoff-text { font-size:0.82rem; color:var(--text-main); line-height:1.6; margin:0 0 1rem; }
+  .escrow-id-row { display:flex; gap:0.5rem; align-items:center; }
+  .escrow-id { flex:1; font-family:monospace; font-size:0.85rem; color:var(--secondary); background:rgba(0,0,0,0.3); padding:0.6rem 0.8rem; border-radius:8px; word-break:break-all; }
+  .copy-btn { background:rgba(102,252,241,0.1); border:1px solid rgba(102,252,241,0.3); color:var(--secondary); padding:0.6rem 0.9rem; border-radius:8px; font-size:0.8rem; font-weight:600; cursor:pointer; white-space:nowrap; width:auto; margin:0; box-shadow:none; text-transform:none; letter-spacing:0; }
+  .copy-btn:hover { background:rgba(102,252,241,0.2); transform:none; }
+  .demo-link { display:block; margin-top:1rem; text-align:center; color:var(--text-main); font-size:0.78rem; text-decoration:none; opacity:0.7; }
+  .demo-link:hover { opacity:1; color:var(--secondary); }
   .oracle-bar { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; background:rgba(102,252,241,0.05); border:1px solid rgba(102,252,241,0.15); border-radius:10px; padding:0.6rem 0.9rem; margin-bottom:1.5rem; font-size:0.78rem; }
   .oracle-label { color:var(--primary); font-weight:700; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; }
   .oracle-price { color:var(--text-light); }

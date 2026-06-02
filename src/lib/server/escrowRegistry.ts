@@ -19,7 +19,9 @@ export interface EscrowRecord {
 	amount: string; // USDC amount entered by buyer
 	xlmLocked: string; // actual XLM moved to vault for this escrow
 	termsHash: string;
+	encryptedTermsCid?: string; // IPFS CID of buyer-encrypted terms
 	evidenceHash?: string;
+	ipfsCid?: string; // IPFS CID of delivered work
 	status: 'funded' | 'delivered' | 'released';
 	createdAt: number;
 }

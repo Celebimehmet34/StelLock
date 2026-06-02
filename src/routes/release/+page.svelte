@@ -1,6 +1,6 @@
 <script lang="ts">
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
-  import { tw } from '$lib/stellar/tw-client';
+  import { tw, type EscrowInfo } from '$lib/stellar/tw-client';
   import { decryptTerms } from '$lib/utils/privacy';
   import { escrowStore, userStore, historyStore } from '$lib/store';
   import { get } from 'svelte/store';
@@ -9,8 +9,11 @@
 
   const stored = get(escrowStore);
   let escrowId = $state(stored.escrowId || '');
-  let expectedHash = $state(stored.evidenceHash || '');
-  let sellerPublicKey = stored.sellerPublicKey || '';
+  let escrowInfo = $state<EscrowInfo | null>(null);
+  let lookupError = $state('');
+  let expectedHash = $state('');
+  let sellerPublicKey = $state('');
+  let encryptedTermsCid = $state('');
   let files = $state<FileList | undefined>(undefined);
   let status = $state('');
   let matchStatus = $state('');
@@ -23,7 +26,26 @@
 
   onMount(() => {
     if (!$userStore.isLoggedIn) goto('/login');
+    if (escrowId) lookupEscrow();
   });
+
+  async function lookupEscrow() {
+    lookupError = '';
+    escrowInfo = null;
+    if (!escrowId.trim()) return;
+    try {
+      const info = await tw.getEscrow(escrowId.trim());
+      if (!info) { lookupError = 'No escrow found with that ID.'; return; }
+      escrowInfo = info;
+      expectedHash = info.evidenceHash;
+      sellerPublicKey = info.sellerPublicKey;
+      encryptedTermsCid = info.encryptedTermsCid;
+      if (info.status === 'released') { lookupError = 'This escrow is already released.'; released = true; }
+      else if (info.status === 'funded') lookupError = 'Seller has not delivered yet — nothing to verify.';
+    } catch (e) {
+      lookupError = 'Lookup failed: ' + e;
+    }
+  }
 
   async function verifyFile() {
     if (!files || files.length === 0) return;
@@ -48,7 +70,6 @@
 
       status = 'Releasing funds on Stellar testnet...';
       const result = await tw.releaseEscrow($userStore.secretKey, escrowId, sellerPublicKey || undefined);
-
       explorerUrl = result.explorerUrl;
 
       historyStore.add($userStore.publicKey, {
@@ -62,7 +83,7 @@
       released = true;
       status = '🎉 Payment settled on Stellar.';
     } catch (e) {
-      status = 'Error: ' + e;
+      status = 'Error: ' + (e instanceof Error ? e.message : e);
     } finally {
       loading = false;
     }
@@ -70,7 +91,7 @@
 
   async function handleDecryptTerms() {
     if (!$userStore.secretKey) return;
-    const cid = stored.encryptedTermsCid;
+    const cid = encryptedTermsCid || stored.encryptedTermsCid;
     if (!cid) { decryptedTerms = '(No encrypted terms CID for this escrow)'; showTerms = true; return; }
     try {
       status = 'Fetching encrypted terms from IPFS...';
@@ -80,7 +101,7 @@
       showTerms = true;
       status = '';
     } catch (e) {
-      decryptedTerms = 'Failed to decrypt: ' + e;
+      decryptedTerms = 'Failed to decrypt (only the buyer who created the escrow can): ' + e;
       showTerms = true;
       status = '';
     }
@@ -95,42 +116,39 @@
 
   <div class="form-group">
     <label for="escrowId">Escrow ID</label>
-    <input type="text" id="escrowId" bind:value={escrowId} />
+    <input type="text" id="escrowId" bind:value={escrowId} onblur={lookupEscrow} placeholder="esc_..." />
   </div>
 
-  <div class="form-group">
-    <label for="expectedHash">Evidence Hash (from chain)</label>
-    <input type="text" id="expectedHash" bind:value={expectedHash} placeholder="Auto-filled from Deliver step" />
-  </div>
-
-  {#if sellerPublicKey}
-    <div class="info-row">
-      <span class="info-label">Releasing to</span>
-      <span class="info-value">{sellerPublicKey.slice(0,8)}...{sellerPublicKey.slice(-6)}</span>
+  {#if escrowInfo}
+    <div class="escrow-context">
+      <div class="ctx-row"><span class="ctx-label">Seller</span><span class="ctx-val">{sellerPublicKey ? sellerPublicKey.slice(0,8)+'...'+sellerPublicKey.slice(-6) : '—'}</span></div>
+      <div class="ctx-row"><span class="ctx-label">Amount</span><span class="ctx-val">{escrowInfo.amount} USDC</span></div>
+      <div class="ctx-row"><span class="ctx-label">Status</span><span class="ctx-val status-{escrowInfo.status}">{escrowInfo.status}</span></div>
     </div>
   {/if}
 
-  <div class="form-group">
-    <label for="file">Downloaded Deliverable</label>
-    <input type="file" id="file" bind:files onchange={verifyFile} style="padding:0.8rem;" />
-  </div>
-
-  {#if matchStatus}
-    <div class="status-box match-box" class:match-ok={isMatch} class:match-fail={!isMatch && expectedHash.length > 0}>
-      {matchStatus}
-    </div>
-  {/if}
-
-  <button onclick={handleDecryptTerms} class="secondary-btn">
-    🔓 Decrypt & View My Terms
-  </button>
-
-  {#if showTerms}
-    <div class="terms-box">{decryptedTerms}</div>
+  {#if lookupError}
+    <div class="status-box" class:match-fail={!released} style="margin-bottom:1.5rem">{lookupError}</div>
   {/if}
 
   {#if !released}
-    <button onclick={handleRelease} disabled={loading || (expectedHash.length > 0 && !isMatch)}>
+    <div class="form-group">
+      <label for="file">Downloaded Deliverable (verify against chain)</label>
+      <input type="file" id="file" bind:files onchange={verifyFile} style="padding:0.8rem;" />
+    </div>
+
+    {#if matchStatus}
+      <div class="status-box match-box" class:match-ok={isMatch} class:match-fail={!isMatch && expectedHash.length > 0}>
+        {matchStatus}
+      </div>
+    {/if}
+
+    <button onclick={handleDecryptTerms} class="secondary-btn">🔓 Decrypt & View My Terms</button>
+    {#if showTerms}
+      <div class="terms-box">{decryptedTerms}</div>
+    {/if}
+
+    <button onclick={handleRelease} disabled={loading || escrowInfo?.status !== 'delivered' || (expectedHash.length > 0 && !isMatch)}>
       {loading ? 'Submitting to Stellar...' : '✅ Approve & Release Funds'}
     </button>
   {:else}
@@ -155,7 +173,9 @@
   .success-banner { width:100%; padding:1.2rem; background:linear-gradient(135deg,#45a29e,#66fcf1); color:#0b0c10; border-radius:12px; font-size:1.1rem; font-weight:700; text-align:center; box-sizing:border-box; }
   .explorer-link { display:block; margin-top:0.8rem; text-align:center; color:var(--secondary); font-size:0.9rem; font-weight:600; text-decoration:none; }
   .explorer-link:hover { text-decoration:underline; }
-  .info-row { display:flex; align-items:center; gap:0.8rem; margin-bottom:1.5rem; padding:0.8rem 1rem; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.08); border-radius:10px; }
-  .info-label { font-size:0.75rem; color:var(--primary); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; }
-  .info-value { font-size:0.82rem; font-family:monospace; color:var(--secondary); }
+  .escrow-context { background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:0.9rem; margin-bottom:1.5rem; }
+  .ctx-row { display:flex; justify-content:space-between; padding:0.25rem 0; font-size:0.82rem; }
+  .ctx-label { color:var(--primary); font-weight:600; text-transform:uppercase; font-size:0.7rem; letter-spacing:0.5px; }
+  .ctx-val { color:var(--text-light); font-family:monospace; }
+  .status-funded { color:#66fcf1; } .status-delivered { color:#f0a500; } .status-released { color:#4caf50; }
 </style>

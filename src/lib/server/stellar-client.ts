@@ -46,7 +46,8 @@ export async function fundEscrowTx(
 	termsHash: string,
 	amount: string,
 	buyerSecretKey?: string,
-	sellerPublicKey?: string
+	sellerPublicKey?: string,
+	encryptedTermsCid?: string
 ): Promise<{ txHash: string; explorerUrl: string }> {
 	const buyer = userKeypair(buyerSecretKey);
 
@@ -74,6 +75,7 @@ export async function fundEscrowTx(
 		amount,
 		xlmLocked: xlm,
 		termsHash,
+		encryptedTermsCid: encryptedTermsCid ?? '',
 		status: 'funded',
 		createdAt: Date.now()
 	});
@@ -88,9 +90,22 @@ export async function fundEscrowTx(
 export async function recordEvidenceTx(
 	escrowId: string,
 	evidenceHash: string,
-	sellerSecretKey?: string
+	sellerSecretKey?: string,
+	ipfsCid?: string
 ): Promise<{ txHash: string; explorerUrl: string }> {
 	const seller = userKeypair(sellerSecretKey);
+
+	// ── Authorization & state checks ──
+	const escrow = await getEscrow(escrowId);
+	if (!escrow) throw new Error('Escrow not found — check the Escrow ID');
+	if (escrow.status === 'released') throw new Error('Escrow already released');
+	if (escrow.buyerPublicKey === seller.publicKey()) {
+		throw new Error('The buyer cannot deliver their own escrow');
+	}
+	// If a seller was designated at deposit, only they may deliver.
+	if (escrow.sellerPublicKey && escrow.sellerPublicKey !== seller.publicKey()) {
+		throw new Error('Only the designated seller can deliver this escrow');
+	}
 
 	await ensureFunded(seller.publicKey());
 
@@ -106,11 +121,13 @@ export async function recordEvidenceTx(
 	tx.sign(seller);
 	const result = await server.submitTransaction(tx);
 
-	// Best-effort: update escrow status if it exists
-	const escrow = await getEscrow(escrowId);
-	if (escrow && escrow.status === 'funded') {
-		await updateEscrow(escrowId, { evidenceHash, status: 'delivered' });
-	}
+	// Record evidence; if seller wasn't pre-designated, bind it now.
+	await updateEscrow(escrowId, {
+		evidenceHash,
+		ipfsCid: ipfsCid ?? escrow.ipfsCid,
+		sellerPublicKey: escrow.sellerPublicKey || seller.publicKey(),
+		status: 'delivered'
+	});
 
 	return { txHash: result.hash, explorerUrl: explorerUrl(result.hash) };
 }
