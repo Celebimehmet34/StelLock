@@ -14,11 +14,24 @@
     try {
       loading = true;
       status = 'Deriving keypair...';
-
       const { publicKey, secretKey } = await deriveKeypair(username, password);
 
-      userStore.login({ username, publicKey, secretKey });
+      status = 'Verifying credentials...';
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), publicKey })
+      });
 
+      if (!res.ok) {
+        if (res.status === 404) status = 'No account with that username. Please register first.';
+        else if (res.status === 401) status = 'Incorrect password.';
+        else status = 'Login failed: ' + (await res.text());
+        loading = false;
+        return;
+      }
+
+      userStore.login({ username: username.trim(), publicKey, secretKey });
       status = 'Logged in!';
       await new Promise(r => setTimeout(r, 300));
       goto('/deposit');

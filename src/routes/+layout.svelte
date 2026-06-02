@@ -8,7 +8,7 @@
   let copied = $state(false);
 
   onMount(() => {
-    userStore.restorePublicInfo();
+    userStore.restore();
   });
 
   function logout() {

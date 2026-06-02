@@ -86,11 +86,11 @@ function createUserStore() {
 		subscribe,
 		login(session: Omit<UserSession, 'isLoggedIn'>) {
 			set({ ...session, isLoggedIn: true });
+			// sessionStorage survives refresh, clears on tab close.
+			// secretKey is already transmitted to the server for signing, so storing
+			// it here adds no new exposure — and it keeps the session usable on reload.
 			if (typeof sessionStorage !== 'undefined') {
-				sessionStorage.setItem(
-					'emanet_user',
-					JSON.stringify({ username: session.username, publicKey: session.publicKey })
-				);
+				sessionStorage.setItem('emanet_session', JSON.stringify(session));
 			}
 			historyStore.load(session.publicKey);
 		},
@@ -98,17 +98,20 @@ function createUserStore() {
 			set({ isLoggedIn: false, username: '', publicKey: '', secretKey: '' });
 			historyStore.clear();
 			if (typeof sessionStorage !== 'undefined') {
-				sessionStorage.removeItem('emanet_user');
+				sessionStorage.removeItem('emanet_session');
 			}
 		},
-		restorePublicInfo() {
+		/** Restore the full session on page reload (within the same tab). */
+		restore() {
 			if (typeof sessionStorage === 'undefined') return;
-			const raw = sessionStorage.getItem('emanet_user');
+			const raw = sessionStorage.getItem('emanet_session');
 			if (!raw) return;
 			try {
-				const saved = JSON.parse(raw);
-				update((s) => ({ ...s, ...saved }));
-				if (saved.publicKey) historyStore.load(saved.publicKey);
+				const saved = JSON.parse(raw) as Omit<UserSession, 'isLoggedIn'>;
+				if (saved.publicKey && saved.secretKey) {
+					set({ ...saved, isLoggedIn: true });
+					historyStore.load(saved.publicKey);
+				}
 			} catch {}
 		}
 	};

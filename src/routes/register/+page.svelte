@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { deriveKeypair, accountExists, friendbotFund } from '$lib/utils/keypair';
+  import { deriveKeypair } from '$lib/utils/keypair';
   import { userStore } from '$lib/store';
 
   let username = $state('');
@@ -19,16 +19,25 @@
       status = 'Deriving your Stellar keypair...';
       const { publicKey, secretKey } = await deriveKeypair(username, password);
 
-      const exists = await accountExists(publicKey);
-      if (!exists) {
-        status = 'Funding your testnet account via Friendbot...';
-        await friendbotFund(publicKey);
-        await new Promise(r => setTimeout(r, 3000));
+      status = 'Registering & funding your account...';
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), publicKey })
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        status = res.status === 409
+          ? 'That username is already taken. Try another, or log in.'
+          : 'Registration failed: ' + msg;
+        loading = false;
+        return;
       }
 
-      userStore.login({ username, publicKey, secretKey });
+      userStore.login({ username: username.trim(), publicKey, secretKey });
       status = 'Account ready!';
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 500));
       goto('/deposit');
     } catch (e) {
       status = 'Error: ' + e;
@@ -59,7 +68,7 @@
     <input id="confirm" type="password" bind:value={confirm} placeholder="••••••••" />
   </div>
 
-  <p class="warning">⚠️ Same username + password always generates the same wallet. Don't forget them — there's no recovery.</p>
+  <p class="warning">⚠️ Same username + password always regenerates the same wallet. There's no recovery — don't forget them.</p>
 
   <button onclick={handleRegister} disabled={loading}>
     {loading ? 'Creating account...' : '🚀 Create Account'}

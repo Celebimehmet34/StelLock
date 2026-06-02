@@ -56,7 +56,7 @@
 
       status = 'Submitting to Stellar testnet...';
       const newEscrowId = 'esc_' + Math.random().toString(36).slice(2, 9);
-      const result = await tw.fundEscrow($userStore.secretKey, newEscrowId, termsHash, amount);
+      const result = await tw.fundEscrow($userStore.secretKey, newEscrowId, termsHash, amount, counterparty);
 
       escrowId = newEscrowId;
       explorerUrl = result.explorerUrl;

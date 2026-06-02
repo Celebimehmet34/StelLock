@@ -9,6 +9,7 @@ import {
 	Horizon
 } from '@stellar/stellar-sdk';
 import { env } from '$env/dynamic/private';
+import { createEscrow, getEscrow, updateEscrow } from './escrowRegistry';
 
 const HORIZON_URL = 'https://horizon-testnet.stellar.org';
 const server = new Horizon.Server(HORIZON_URL);
@@ -20,11 +21,10 @@ function explorerUrl(hash: string) {
 	return `${EXPLORER_BASE}/${hash}`;
 }
 
-/** If user's secretKey is provided, use it. Otherwise fall back to env default. */
-function resolveKeypair(secretKey?: string, envKey?: string): Keypair {
-	const key = secretKey || env[envKey ?? ''];
-	if (!key) throw new Error('No keypair secret available');
-	return Keypair.fromSecret(key);
+/** secretKey is REQUIRED — no env fallback. The user's own keypair signs. */
+function userKeypair(secretKey?: string): Keypair {
+	if (!secretKey) throw new Error('Missing user secret key — please log in again');
+	return Keypair.fromSecret(secretKey);
 }
 
 async function ensureFunded(publicKey: string): Promise<void> {
@@ -37,14 +37,18 @@ async function ensureFunded(publicKey: string): Promise<void> {
 	}
 }
 
-/** Buyer locks funds → XLM transfer from buyer to escrow vault. */
+/**
+ * Buyer locks funds → XLM transfer from buyer to escrow vault.
+ * Records the escrow so release can verify ownership and amount.
+ */
 export async function fundEscrowTx(
 	escrowId: string,
 	termsHash: string,
 	amount: string,
-	buyerSecretKey?: string
+	buyerSecretKey?: string,
+	sellerPublicKey?: string
 ): Promise<{ txHash: string; explorerUrl: string }> {
-	const buyer = resolveKeypair(buyerSecretKey, 'ALICE_SECRET');
+	const buyer = userKeypair(buyerSecretKey);
 
 	await ensureFunded(buyer.publicKey());
 	await ensureFunded(ESCROW_PUBLIC);
@@ -61,16 +65,32 @@ export async function fundEscrowTx(
 
 	tx.sign(buyer);
 	const result = await server.submitTransaction(tx);
+
+	// Record the escrow with buyer ownership + locked amount
+	await createEscrow({
+		escrowId,
+		buyerPublicKey: buyer.publicKey(),
+		sellerPublicKey: sellerPublicKey ?? '',
+		amount,
+		xlmLocked: xlm,
+		termsHash,
+		status: 'funded',
+		createdAt: Date.now()
+	});
+
 	return { txHash: result.hash, explorerUrl: explorerUrl(result.hash) };
 }
 
-/** Seller records evidence hash on-chain via self-payment with memo. */
+/**
+ * Seller records evidence hash on-chain via self-payment with memo.
+ * Marks the escrow as delivered.
+ */
 export async function recordEvidenceTx(
 	escrowId: string,
 	evidenceHash: string,
 	sellerSecretKey?: string
 ): Promise<{ txHash: string; explorerUrl: string }> {
-	const seller = resolveKeypair(sellerSecretKey, 'BOB_SECRET');
+	const seller = userKeypair(sellerSecretKey);
 
 	await ensureFunded(seller.publicKey());
 
@@ -85,21 +105,43 @@ export async function recordEvidenceTx(
 
 	tx.sign(seller);
 	const result = await server.submitTransaction(tx);
+
+	// Best-effort: update escrow status if it exists
+	const escrow = await getEscrow(escrowId);
+	if (escrow && escrow.status === 'funded') {
+		await updateEscrow(escrowId, { evidenceHash, status: 'delivered' });
+	}
+
 	return { txHash: result.hash, explorerUrl: explorerUrl(result.hash) };
 }
 
-/** Escrow vault releases funds to seller. */
+/**
+ * Buyer releases funds → escrow vault sends the EXACT locked amount to the seller.
+ * Authorization: only the buyer who funded this escrow can release it.
+ */
 export async function releaseEscrowTx(
 	escrowId: string,
-	sellerPublicKey?: string,
+	sellerPublicKey: string | undefined,
 	buyerSecretKey?: string
 ): Promise<{ txHash: string; explorerUrl: string }> {
-	const escrow = Keypair.fromSecret(env.ESCROW_SECRET);
-	const destination = sellerPublicKey || Keypair.fromSecret(env.BOB_SECRET).publicKey();
+	const buyer = userKeypair(buyerSecretKey);
 
-	const account = await server.loadAccount(escrow.publicKey());
-	const balance = (account.balances.find((b) => b.asset_type === 'native') as any)?.balance ?? '2';
-	const sendAmount = Math.max(parseFloat(balance) - 1.5, 0.0000100).toFixed(7);
+	// ── Authorization & accounting ──
+	const escrow = await getEscrow(escrowId);
+	if (!escrow) throw new Error('Escrow not found');
+	if (escrow.status === 'released') throw new Error('Escrow already released');
+	if (escrow.buyerPublicKey !== buyer.publicKey()) {
+		throw new Error('Only the buyer who funded this escrow can release it');
+	}
+
+	const destination = sellerPublicKey || escrow.sellerPublicKey;
+	if (!destination) throw new Error('No seller address for this escrow');
+
+	const escrowKp = Keypair.fromSecret(env.ESCROW_SECRET);
+	const account = await server.loadAccount(escrowKp.publicKey());
+
+	// Send exactly what was locked for THIS escrow (not the whole vault)
+	const sendAmount = escrow.xlmLocked;
 	const memo = `release:${escrowId.slice(-8)}`.slice(0, 28);
 
 	const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: Networks.TESTNET })
@@ -108,8 +150,11 @@ export async function releaseEscrowTx(
 		.setTimeout(30)
 		.build();
 
-	tx.sign(escrow);
+	tx.sign(escrowKp);
 	const result = await server.submitTransaction(tx);
+
+	await updateEscrow(escrowId, { status: 'released' });
+
 	return { txHash: result.hash, explorerUrl: explorerUrl(result.hash) };
 }
 

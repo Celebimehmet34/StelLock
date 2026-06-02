@@ -79,4 +79,19 @@ cp .env.example .env
 npm run dev
 ```
 
-Uygulama `http://localhost:5173` adresinde çalışacaktır. Deposit -> Deliver -> Release sekmelerini takip ederek senaryoyu deneyimleyebilirsiniz.
+Uygulama `http://localhost:5173` adresinde çalışacaktır. Önce **Register** ile hesap oluşturun, ardından Deposit -> Deliver -> Release sekmelerini takip ederek senaryoyu deneyimleyebilirsiniz.
+
+---
+
+## 🔐 Hesap & Kimlik Modeli
+
+- **Deterministik cüzdan:** `username + password → PBKDF2 (100k iter) → Ed25519 keypair`. Seed phrase yok. Aynı kimlik bilgileri her zaman aynı cüzdanı üretir.
+- **Sunucu tarafı kayıt:** `username → publicKey` eşlemesi `data/users.json` içinde tutulur. Kayıtta username benzersizliği kontrol edilir; girişte türetilen publicKey kayıtlıyla eşleşmezse giriş reddedilir (yanlış şifre / olmayan kullanıcı ayrımı yapılır).
+- **Escrow muhasebesi:** Her escrow `data/escrows.json` içinde `buyer / seller / amount / status` ile izlenir. Release yalnızca escrow'u fonlayan buyer tarafından yapılabilir, tam kilitlenen tutar gönderilir, çift release engellenir.
+
+## ⚠️ Bilinen Sınırlamalar (Hackathon kapsamı)
+
+- **İmzalama sunucu tarafında:** Kullanıcı `secretKey`'i imzalama için sunucu endpoint'lerine gönderilir. Tarayıcıda Stellar SDK polyfill çakışması yaşandığı için bu yol seçildi. Üretimde imzalama tamamen istemci tarafında (veya gerçek Passkey/WebAuthn ile) yapılmalıdır.
+- **Passkey simülasyonu:** `smart-account-kit` kurulu ancak biyometrik imza şu an simüle ediliyor (deterministik SHA-256). Gerçek WebAuthn entegrasyonu için kontrat altyapısı (`accountWasmHash`, `webauthnVerifierAddress`) gerekiyor.
+- **Tek escrow vault:** Tüm escrow'lar tek bir testnet vault hesabında tutuluyor; muhasebe kayıt dosyasıyla (off-chain) yapılıyor. Üretimde her escrow Soroban kontratı seviyesinde izole edilmeli (Trustless Work'ün asıl modeli).
+- **Yerel JSON depolama:** `data/` altındaki dosyalar bir veritabanı değil; tek sunucu örneği için uygundur.
