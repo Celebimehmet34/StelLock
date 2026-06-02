@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { deriveKeypair, accountExists } from '$lib/utils/keypair';
+  import { deriveKeypair } from '$lib/utils/keypair';
   import { userStore } from '$lib/store';
 
   let username = $state('');
@@ -14,15 +14,13 @@
     try {
       loading = true;
       status = 'Deriving keypair...';
+
       const { publicKey, secretKey } = await deriveKeypair(username, password);
 
-      status = 'Verifying account on Stellar testnet...';
-      const exists = await accountExists(publicKey);
-      if (!exists) { status = 'Account not found. Please register first.'; loading = false; return; }
-
       userStore.login({ username, publicKey, secretKey });
+
       status = 'Logged in!';
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 300));
       goto('/deposit');
     } catch (e) {
       status = 'Error: ' + e;
