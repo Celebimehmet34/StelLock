@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { userStore } from '$lib/store';
   import { onMount } from 'svelte';
+  import Notifications from '$lib/components/Notifications.svelte';
 
   let { children } = $props();
   let copied = $state(false);
@@ -67,6 +68,8 @@
   <main class="page-content">
     {@render children()}
   </main>
+
+  <Notifications />
 </div>
 
 <style>

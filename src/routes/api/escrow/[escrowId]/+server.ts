@@ -18,6 +18,7 @@ export const GET: RequestHandler = async ({ params }) => {
 		amount: escrow.amount,
 		termsHash: escrow.termsHash,
 		encryptedTermsCid: escrow.encryptedTermsCid ?? '',
+		zkCommitment: escrow.zkCommitment ?? '',
 		evidenceHash: escrow.evidenceHash ?? '',
 		ipfsCid: escrow.ipfsCid ?? '',
 		status: escrow.status,

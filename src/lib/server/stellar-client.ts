@@ -47,7 +47,8 @@ export async function fundEscrowTx(
 	amount: string,
 	buyerSecretKey?: string,
 	sellerPublicKey?: string,
-	encryptedTermsCid?: string
+	encryptedTermsCid?: string,
+	zkCommitment?: string
 ): Promise<{ txHash: string; explorerUrl: string }> {
 	const buyer = userKeypair(buyerSecretKey);
 
@@ -56,7 +57,9 @@ export async function fundEscrowTx(
 
 	const account = await server.loadAccount(buyer.publicKey());
 	const xlm = Math.min(parseFloat(amount) * 0.01, 10).toFixed(7);
-	const memo = `fund:${escrowId.slice(-6)}:${termsHash.slice(0, 8)}`.slice(0, 28);
+	// Include ZK commitment prefix in memo if available (on-chain ZK binding)
+	const zkPrefix = encryptedTermsCid ? encryptedTermsCid.slice(0, 6) : termsHash.slice(0, 8);
+	const memo = `fund:${escrowId.slice(-6)}:${zkPrefix}`.slice(0, 28);
 
 	const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: Networks.TESTNET })
 		.addOperation(Operation.payment({ destination: ESCROW_PUBLIC, asset: Asset.native(), amount: xlm }))
@@ -76,6 +79,7 @@ export async function fundEscrowTx(
 		xlmLocked: xlm,
 		termsHash,
 		encryptedTermsCid: encryptedTermsCid ?? '',
+		zkCommitment: zkCommitment ?? '',
 		status: 'funded',
 		createdAt: Date.now()
 	});

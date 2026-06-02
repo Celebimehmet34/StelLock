@@ -28,12 +28,13 @@ export const tw = {
 		termsHash: string,
 		amount: string,
 		sellerPublicKey?: string,
-		encryptedTermsCid?: string
+		encryptedTermsCid?: string,
+		zkCommitment?: string
 	): Promise<EscrowResult> {
 		const res = await fetch('/api/tw/fund', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ escrowId, termsHash, amount, secretKey, sellerPublicKey, encryptedTermsCid })
+			body: JSON.stringify({ escrowId, termsHash, amount, secretKey, sellerPublicKey, encryptedTermsCid, zkCommitment })
 		});
 		if (!res.ok) throw new Error(await res.text());
 		return res.json();

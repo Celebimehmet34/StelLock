@@ -20,10 +20,20 @@ export interface EscrowRecord {
 	xlmLocked: string; // actual XLM moved to vault for this escrow
 	termsHash: string;
 	encryptedTermsCid?: string; // IPFS CID of buyer-encrypted terms
+	zkCommitment?: string; // Poseidon commitment from Groth16 proof
 	evidenceHash?: string;
 	ipfsCid?: string; // IPFS CID of delivered work
+	milestones?: Milestone[];
 	status: 'funded' | 'delivered' | 'released';
 	createdAt: number;
+}
+
+export interface Milestone {
+	description: string;
+	percentage: number; // 0-100, sum of all = 100
+	evidenceHash?: string;
+	ipfsCid?: string;
+	status: 'pending' | 'delivered' | 'approved';
 }
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));

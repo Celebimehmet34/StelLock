@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { userStore } from '$lib/store';
+  import { userStore, historyStore } from '$lib/store';
+  import { derived } from 'svelte/store';
 
   let copied = $state(false);
 
@@ -9,16 +10,37 @@
     setTimeout(() => (copied = false), 2000);
   }
 
+  // Derive stats from history
+  const stats = derived(historyStore, ($h) => {
+    const deposits = $h.filter(t => t.type === 'deposit').length;
+    const delivers = $h.filter(t => t.type === 'deliver').length;
+    const releases = $h.filter(t => t.type === 'release').length;
+    const totalAmount = $h
+      .filter(t => t.type === 'deposit' && t.meta?.amount)
+      .reduce((sum, t) => sum + parseFloat(t.meta!.amount!), 0);
+    return { deposits, delivers, releases, total: $h.length, totalAmount };
+  });
+
+  // Recent escrows for quick access
+  const recentEscrows = derived(historyStore, ($h) => {
+    const seen = new Set<string>();
+    return $h.filter(t => {
+      if (seen.has(t.escrowId)) return false;
+      seen.add(t.escrowId);
+      return true;
+    }).slice(0, 5);
+  });
+
   const actions = [
-    { title: 'Deposit', icon: '🔒', href: '/deposit', desc: 'Lock funds. Terms encrypted with your key, hash committed on-chain.' },
-    { title: 'Deliver', icon: '📦', href: '/deliver', desc: 'Submit work to IPFS. Cryptographic proof written to the contract.' },
-    { title: 'Release', icon: '✅', href: '/release', desc: 'Verify the deliverable on-chain. Approve with Face ID. Funds settle.' },
-    { title: 'History', icon: '🧾', href: '/history', desc: 'Your past escrows with on-chain verification links.' }
+    { title: 'Deposit', icon: '🔒', href: '/deposit', desc: 'Lock funds with ZK proof + AES encryption.' },
+    { title: 'Deliver', icon: '📦', href: '/deliver', desc: 'Submit work to IPFS with cryptographic proof.' },
+    { title: 'Release', icon: '✅', href: '/release', desc: 'Verify delivery and release payment.' },
+    { title: 'ZK Proof', icon: '🔬', href: '/zk', desc: 'Interactive Groth16 zero-knowledge demo.' }
   ];
 
   const features = [
     { label: 'Verifiable Delivery', desc: 'IPFS + SHA-256 hash on-chain' },
-    { label: 'Privacy Layer', desc: 'AES-256-GCM, only the buyer reads terms' },
+    { label: 'Privacy Layer', desc: 'AES-256-GCM + Groth16 zk-SNARK' },
     { label: 'No Seed Phrases', desc: 'Username + password wallet' },
     { label: 'Built on Trustless Work', desc: 'Battle-tested Soroban escrow' }
   ];
@@ -29,7 +51,6 @@
 </svelte:head>
 
 {#if $userStore.isLoggedIn}
-  <!-- ── Dashboard (logged in) ── -->
   <div class="dash">
     <div class="dash-head">
       <div>
@@ -41,9 +62,43 @@
       </button>
     </div>
 
-    <p class="dash-hint">
-      Share your public key with a buyer to receive an escrow, or start one yourself below.
-    </p>
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-num">{$stats.total}</div>
+        <div class="stat-label">Transactions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">{$stats.deposits}</div>
+        <div class="stat-label">Deposits</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">{$stats.delivers}</div>
+        <div class="stat-label">Deliveries</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">{$stats.releases}</div>
+        <div class="stat-label">Releases</div>
+      </div>
+    </div>
+
+    <!-- Recent Escrows -->
+    {#if $recentEscrows.length > 0}
+      <div class="recent-section">
+        <div class="section-title">Recent Escrows</div>
+        {#each $recentEscrows as esc}
+          <a href="/escrow/{esc.escrowId}" class="recent-row">
+            <span class="recent-type">{esc.type === 'deposit' ? '🔒' : esc.type === 'deliver' ? '📦' : '✅'}</span>
+            <span class="recent-id">{esc.escrowId}</span>
+            <span class="recent-meta">{esc.meta?.amount ? esc.meta.amount + ' USDC' : esc.type}</span>
+            <span class="recent-arrow">→</span>
+          </a>
+        {/each}
+        <a href="/history" class="view-all">View all →</a>
+      </div>
+    {/if}
+
+    <p class="dash-hint">Share your public key with a buyer to receive an escrow, or start one yourself:</p>
 
     <div class="action-grid">
       {#each actions as a}
@@ -57,7 +112,6 @@
     </div>
   </div>
 {:else}
-  <!-- ── Landing (logged out) ── -->
   <div class="hero">
     <div class="hero-content">
       <div class="hero-badge">Built on Trustless Work · Stellar · Soroban</div>
@@ -66,7 +120,7 @@
         <span class="accent">Not promise of delivery.</span>
       </h1>
       <p class="hero-subtitle">
-        Emanet adds verifiable delivery, commercial privacy, and seedless wallets
+        Verifiable delivery, commercial privacy (AES + zk-SNARK), and seedless wallets
         on top of Stellar's battle-tested escrow infrastructure.
       </p>
 
@@ -88,44 +142,56 @@
 {/if}
 
 <style>
-  /* ── Dashboard ── */
-  .dash { max-width: 880px; margin: 0 auto; padding: 3rem 2rem; width: 100%; box-sizing: border-box; }
-  .dash-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
-  .welcome { color: var(--text-main); font-size: 0.9rem; }
-  .username { color: var(--text-light); font-size: 2.2rem; margin: 0.2rem 0 0; font-weight: 800; }
-  .key-chip { background: rgba(102,252,241,0.08); border: 1px solid rgba(102,252,241,0.25); color: var(--secondary); padding: 0.5rem 1rem; border-radius: 10px; font-family: monospace; font-size: 0.82rem; font-weight: 600; cursor: pointer; width: auto; margin: 0; box-shadow: none; text-transform: none; letter-spacing: 0; transition: background 0.2s; }
-  .key-chip:hover { background: rgba(102,252,241,0.16); transform: none; }
-  .dash-hint { color: var(--text-main); font-size: 0.9rem; margin: 1.2rem 0 2rem; }
+  .dash { max-width:880px; margin:0 auto; padding:2rem; width:100%; box-sizing:border-box; }
+  .dash-head { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; }
+  .welcome { color:var(--text-main); font-size:0.9rem; }
+  .username { color:var(--text-light); font-size:2.2rem; margin:0.2rem 0 0; font-weight:800; }
+  .key-chip { background:rgba(102,252,241,0.08); border:1px solid rgba(102,252,241,0.25); color:var(--secondary); padding:0.5rem 1rem; border-radius:10px; font-family:monospace; font-size:0.82rem; font-weight:600; cursor:pointer; width:auto; margin:0; box-shadow:none; text-transform:none; letter-spacing:0; }
+  .key-chip:hover { background:rgba(102,252,241,0.16); transform:none; }
+  .dash-hint { color:var(--text-main); font-size:0.85rem; margin:1.2rem 0 1.5rem; }
 
-  .action-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; }
-  .action-card { background: var(--panel-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 1.6rem; text-decoration: none; display: flex; flex-direction: column; gap: 0.4rem; transition: all 0.25s ease; backdrop-filter: blur(16px); }
-  .action-card:hover { border-color: var(--secondary); transform: translateY(-4px); box-shadow: 0 20px 40px -15px rgba(102,252,241,0.2); }
-  .action-icon { font-size: 1.8rem; }
-  .action-title { font-size: 1.25rem; font-weight: 700; color: var(--text-light); }
-  .action-desc { font-size: 0.82rem; color: var(--text-main); line-height: 1.5; flex: 1; }
-  .action-cta { font-size: 0.85rem; color: var(--secondary); font-weight: 600; margin-top: 0.4rem; }
+  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:0.8rem; margin:1.5rem 0; }
+  .stat-card { background:var(--panel-bg); border:1px solid var(--glass-border); border-radius:12px; padding:1rem; text-align:center; }
+  .stat-num { font-size:1.8rem; font-weight:800; color:var(--secondary); }
+  .stat-label { font-size:0.7rem; color:var(--text-main); text-transform:uppercase; letter-spacing:0.5px; margin-top:0.2rem; }
 
-  /* ── Landing ── */
-  .hero { min-height: calc(100vh - 80px); display: flex; flex-direction: column; justify-content: center; padding: 2rem 3rem; max-width: 900px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-  .hero-badge { font-size: 0.75rem; color: var(--primary); letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; margin-bottom: 1.5rem; }
-  .hero-title { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; color: var(--text-light); margin: 0 0 1.5rem 0; line-height: 1.1; }
-  .accent { color: var(--secondary); }
-  .hero-subtitle { font-size: 1.1rem; color: var(--text-main); max-width: 520px; line-height: 1.7; margin: 0 0 2.5rem 0; }
+  .recent-section { background:var(--panel-bg); border:1px solid var(--glass-border); border-radius:14px; padding:1rem; margin-bottom:1.5rem; }
+  .section-title { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--primary); font-weight:700; margin-bottom:0.6rem; }
+  .recent-row { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.4rem; border-bottom:1px solid rgba(255,255,255,0.04); text-decoration:none; transition:background 0.15s; border-radius:6px; }
+  .recent-row:last-of-type { border:none; }
+  .recent-row:hover { background:rgba(102,252,241,0.05); }
+  .recent-type { font-size:1rem; }
+  .recent-id { font-family:monospace; font-size:0.82rem; color:var(--secondary); flex:1; }
+  .recent-meta { font-size:0.78rem; color:var(--text-main); }
+  .recent-arrow { color:var(--text-main); font-size:0.8rem; }
+  .view-all { display:block; text-align:center; margin-top:0.5rem; font-size:0.78rem; color:var(--secondary); text-decoration:none; }
 
-  .cta-row { display: flex; gap: 1rem; align-items: center; margin-bottom: 3rem; flex-wrap: wrap; }
-  .cta-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: var(--bg-color); padding: 0.9rem 1.8rem; border-radius: 12px; font-weight: 700; font-size: 1rem; text-decoration: none; transition: opacity 0.2s; }
-  .cta-primary:hover { opacity: 0.88; }
-  .cta-secondary { color: var(--secondary); font-weight: 600; font-size: 1rem; text-decoration: none; padding: 0.9rem 0.5rem; }
-  .cta-secondary:hover { text-decoration: underline; }
+  .action-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; }
+  .action-card { background:var(--panel-bg); border:1px solid var(--glass-border); border-radius:16px; padding:1.4rem; text-decoration:none; display:flex; flex-direction:column; gap:0.3rem; transition:all 0.25s; }
+  .action-card:hover { border-color:var(--secondary); transform:translateY(-3px); box-shadow:0 15px 30px -12px rgba(102,252,241,0.2); }
+  .action-icon { font-size:1.6rem; }
+  .action-title { font-size:1.15rem; font-weight:700; color:var(--text-light); }
+  .action-desc { font-size:0.78rem; color:var(--text-main); line-height:1.4; flex:1; }
+  .action-cta { font-size:0.82rem; color:var(--secondary); font-weight:600; margin-top:0.3rem; }
 
-  .features-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; border-top: 1px solid var(--glass-border); padding-top: 2rem; }
-  .feature-item { display: flex; flex-direction: column; gap: 0.3rem; }
-  .feature-label { font-size: 0.8rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
-  .feature-desc { font-size: 0.75rem; color: var(--primary); }
+  .hero { min-height:calc(100vh - 80px); display:flex; flex-direction:column; justify-content:center; padding:2rem 3rem; max-width:900px; margin:0 auto; width:100%; box-sizing:border-box; }
+  .hero-badge { font-size:0.75rem; color:var(--primary); letter-spacing:1.5px; text-transform:uppercase; font-weight:600; margin-bottom:1.5rem; }
+  .hero-title { font-size:clamp(2rem,5vw,3.5rem); font-weight:800; color:var(--text-light); margin:0 0 1.5rem; line-height:1.1; }
+  .accent { color:var(--secondary); }
+  .hero-subtitle { font-size:1.1rem; color:var(--text-main); max-width:520px; line-height:1.7; margin:0 0 2.5rem; }
+  .cta-row { display:flex; gap:1rem; align-items:center; margin-bottom:3rem; flex-wrap:wrap; }
+  .cta-primary { background:linear-gradient(135deg,var(--primary),var(--secondary)); color:var(--bg-color); padding:0.9rem 1.8rem; border-radius:12px; font-weight:700; font-size:1rem; text-decoration:none; }
+  .cta-primary:hover { opacity:0.88; }
+  .cta-secondary { color:var(--secondary); font-weight:600; font-size:1rem; text-decoration:none; padding:0.9rem 0.5rem; }
+  .features-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; border-top:1px solid var(--glass-border); padding-top:2rem; }
+  .feature-item { display:flex; flex-direction:column; gap:0.3rem; }
+  .feature-label { font-size:0.8rem; font-weight:700; color:var(--text-light); text-transform:uppercase; letter-spacing:0.5px; }
+  .feature-desc { font-size:0.75rem; color:var(--primary); }
 
-  @media (max-width: 700px) {
-    .action-grid { grid-template-columns: 1fr; }
-    .features-bar { grid-template-columns: repeat(2, 1fr); }
-    .hero { padding: 1.5rem; }
+  @media (max-width:700px) {
+    .stats-row { grid-template-columns:repeat(2,1fr); }
+    .action-grid { grid-template-columns:1fr; }
+    .features-bar { grid-template-columns:repeat(2,1fr); }
+    .hero { padding:1.5rem; }
   }
 </style>

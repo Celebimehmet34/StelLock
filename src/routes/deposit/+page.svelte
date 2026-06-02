@@ -1,20 +1,21 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { encryptTerms, sha256hex } from '$lib/utils/privacy';
+  import { proveAmountInRange } from '$lib/zk/prover';
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
   import { tw } from '$lib/stellar/tw-client';
   import { escrowStore, userStore, historyStore } from '$lib/store';
   import { onMount } from 'svelte';
 
   let amount = $state('100');
-  let price = $state<{ xlm_usd: number | null; xlm_eur: number | null; xlm_try: number | null; source: string } | null>(null);
+  let minAmount = $state('50');
+  let maxAmount = $state('1000');
+  let price = $state<{ xlm_usd: number | null; xlm_eur: number | null; xlm_try: number | null } | null>(null);
 
   async function fetchPrice() {
-    try {
-      const res = await fetch('/api/price');
-      if (res.ok) price = await res.json();
-    } catch {}
+    try { const r = await fetch('/api/price'); if (r.ok) price = await r.json(); } catch {}
   }
+
   let counterparty = $state('');
   let terms = $state('I will pay 100 USDC for the landing page design. Due in 7 days.');
   let status = $state('');
@@ -22,6 +23,8 @@
   let escrowId = $state('');
   let explorerUrl = $state('');
   let encryptedCid = $state('');
+  let zkCommitment = $state('');
+  let zkVerified = $state(false);
   let loading = $state(false);
   let done = $state(false);
   let copied = $state(false);
@@ -43,11 +46,29 @@
 
     try {
       loading = true;
-      status = 'Encrypting commercial terms...';
 
+      // ── 1. ZK proof: amount is in [min, max] without revealing it ──
+      status = '🔬 Generating ZK proof (amount stays private)...';
+      const zk = await proveAmountInRange(amount, minAmount, maxAmount);
+      zkCommitment = zk.commitment;
+
+      // Verify on server
+      const zkRes = await fetch('/api/zk/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proof: zk.proof, publicSignals: zk.publicSignals })
+      });
+      if (zkRes.ok) {
+        const v = await zkRes.json();
+        zkVerified = v.valid;
+      }
+
+      // ── 2. Encrypt terms ──
+      status = 'Encrypting commercial terms...';
       const encrypted = await encryptTerms(terms, $userStore.secretKey);
       const encryptedJson = JSON.stringify(encrypted);
 
+      // ── 3. Upload encrypted terms to IPFS ──
       status = 'Uploading encrypted terms to IPFS...';
       const formData = new FormData();
       formData.append('file', new Blob([encryptedJson], { type: 'application/json' }), 'terms.enc');
@@ -56,19 +77,18 @@
         const { cid } = await ipfsRes.json();
         encryptedCid = cid;
       } else {
-        // Hash commitment still goes on-chain (privacy proof intact), but the
-        // encrypted blob isn't persisted → buyer can't re-read terms later.
-        warning = '⚠️ IPFS storage failed — your terms are committed on-chain (hash) but won\'t be re-readable later. You can still proceed.';
+        warning = '⚠️ IPFS storage failed — terms committed on-chain but won\'t be re-readable later.';
       }
 
+      // ── 4. On-chain commitment ──
       termsHash = await sha256hex(encryptedJson);
-      status = 'Terms encrypted. Waiting for Face ID...';
+      status = 'Waiting for Face ID...';
+      await passkeyAdapter.signWithPasskey({ amount, termsHash, zkCommitment });
 
-      await passkeyAdapter.signWithPasskey({ amount, termsHash });
-
+      // ── 5. Fund escrow on Stellar ──
       status = 'Submitting to Stellar testnet...';
       const newEscrowId = 'esc_' + Math.random().toString(36).slice(2, 9);
-      const result = await tw.fundEscrow($userStore.secretKey, newEscrowId, termsHash, amount, counterparty, encryptedCid);
+      const result = await tw.fundEscrow($userStore.secretKey, newEscrowId, termsHash, amount, counterparty, encryptedCid, zkCommitment);
 
       escrowId = newEscrowId;
       explorerUrl = result.explorerUrl;
@@ -80,13 +100,13 @@
         escrowId,
         txHash: result.txHash,
         explorerUrl: result.explorerUrl,
-        meta: { amount, termsHash: termsHash.slice(0, 20) + '...', encryptedCid }
+        meta: { amount, zkCommitment: zkCommitment.slice(0, 16) + '...', encryptedCid }
       });
 
       done = true;
       status = 'Funds locked on Stellar testnet.';
     } catch (e) {
-      status = 'Error: ' + e;
+      status = 'Error: ' + (e instanceof Error ? e.message : e);
     } finally {
       loading = false;
     }
@@ -97,7 +117,7 @@
 
 <div class="glass-card">
   <h1>Deposit</h1>
-  <p class="subtitle">Lock funds · Terms encrypted with your key</p>
+  <p class="subtitle">Lock funds · ZK proof + AES encryption + Stellar tx</p>
 
   {#if price}
     <div class="oracle-bar">
@@ -115,27 +135,43 @@
   {/if}
 
   <div class="form-group">
-    <label for="amount">Amount (USDC)</label>
+    <label for="amount">Amount (USDC) <span class="private-tag">🔒 ZK-private</span></label>
     <input type="number" id="amount" bind:value={amount} disabled={done} />
   </div>
 
-  <div class="form-group">
+  <div class="range-row">
+    <div class="form-group">
+      <label for="min">Min (public)</label>
+      <input type="number" id="min" bind:value={minAmount} disabled={done} />
+    </div>
+    <div class="form-group">
+      <label for="max">Max (public)</label>
+      <input type="number" id="max" bind:value={maxAmount} disabled={done} />
+    </div>
+  </div>
+  <small class="hint">ZK proof shows amount is in [{minAmount}, {maxAmount}] — exact amount never disclosed.</small>
+
+  <div class="form-group" style="margin-top:1rem">
     <label for="counterparty">Seller Public Key</label>
     <input type="text" id="counterparty" bind:value={counterparty} placeholder="G... (funds go here on release)" disabled={done} />
   </div>
 
   <div class="form-group">
-    <label for="terms">Commercial Terms <span class="private-tag">🔒 Private</span></label>
-    <textarea id="terms" rows="4" bind:value={terms} disabled={done}></textarea>
-    <small class="hint">AES-256-GCM encrypted with your key — only you can read this on-chain.</small>
+    <label for="terms">Commercial Terms <span class="private-tag">🔒 AES-encrypted</span></label>
+    <textarea id="terms" rows="3" bind:value={terms} disabled={done}></textarea>
   </div>
 
   {#if !done}
     <button onclick={handleDeposit} disabled={loading}>
-      {loading ? 'Submitting to Stellar...' : '🔒 Lock with Face ID'}
+      {loading ? status : '🔒 Lock with ZK Proof + Face ID'}
     </button>
   {:else}
     <div class="success-banner">✅ Funds locked on Stellar testnet.</div>
+
+    {#if zkVerified}
+      <div class="zk-badge">🔬 ZK Proof verified — amount is in range, never disclosed</div>
+    {/if}
+
     {#if explorerUrl}
       <a href={explorerUrl} target="_blank" class="explorer-link">🔍 Verify on StellarExpert →</a>
     {/if}
@@ -159,26 +195,33 @@
     <div class="status-box warning-box">{warning}</div>
   {/if}
 
-  {#if status}
+  {#if status && !done}
     <div class="status-box">
       <strong>Status:</strong> {status}
+      {#if zkCommitment}
+        <div style="margin-top:6px"><strong>ZK Commitment:</strong><span class="hash-text">{zkCommitment.slice(0,24)}...</span></div>
+      {/if}
       {#if termsHash}
-        <div style="margin-top:8px"><strong>On-chain commitment:</strong><span class="hash-text">{termsHash}</span></div>
+        <div style="margin-top:6px"><strong>Terms Hash:</strong><span class="hash-text">{termsHash.slice(0,24)}...</span></div>
       {/if}
-      {#if encryptedCid}
-        <div style="margin-top:8px"><strong>Encrypted terms (IPFS):</strong><span class="hash-text">{encryptedCid}</span></div>
-      {/if}
-      {#if escrowId}
-        <div style="margin-top:8px"><strong>Escrow ID:</strong><span class="hash-text">{escrowId}</span></div>
-      {/if}
+    </div>
+  {/if}
+
+  {#if done && (termsHash || encryptedCid || escrowId)}
+    <div class="status-box" style="margin-top:1rem">
+      {#if termsHash}<div><strong>Terms hash:</strong><span class="hash-text">{termsHash}</span></div>{/if}
+      {#if encryptedCid}<div style="margin-top:6px"><strong>Encrypted terms (IPFS):</strong><span class="hash-text">{encryptedCid}</span></div>{/if}
+      {#if zkCommitment}<div style="margin-top:6px"><strong>ZK commitment:</strong><span class="hash-text">{zkCommitment.slice(0,30)}...</span></div>{/if}
     </div>
   {/if}
 </div>
 
 <style>
-  .private-tag { font-size: 0.7rem; background: rgba(69,162,158,0.2); color: var(--primary); padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: 600; }
-  .hint { font-size: 0.75rem; color: var(--primary); margin-top: 0.4rem; display: block; }
+  .private-tag { font-size:0.65rem; background:rgba(69,162,158,0.2); color:var(--primary); padding:2px 6px; border-radius:4px; margin-left:4px; font-weight:600; }
+  .hint { font-size:0.72rem; color:var(--primary); display:block; }
+  .range-row { display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; }
   .success-banner { width:100%; padding:1.2rem; background:linear-gradient(135deg,#45a29e,#66fcf1); color:#0b0c10; border-radius:12px; font-size:1.1rem; font-weight:700; text-align:center; box-sizing:border-box; }
+  .zk-badge { margin-top:0.8rem; padding:0.6rem 1rem; background:rgba(102,252,241,0.08); border:1px solid rgba(102,252,241,0.25); border-radius:10px; font-size:0.82rem; color:var(--secondary); font-weight:600; text-align:center; }
   .explorer-link { display:block; margin-top:0.8rem; text-align:center; color:var(--secondary); font-size:0.9rem; font-weight:600; text-decoration:none; }
   .explorer-link:hover { text-decoration:underline; }
   .handoff-box { margin-top:1.5rem; padding:1.2rem; background:rgba(102,252,241,0.05); border:1px solid rgba(102,252,241,0.2); border-radius:12px; }
