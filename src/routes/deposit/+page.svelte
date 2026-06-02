@@ -11,26 +11,28 @@
   let status = $state('');
   let termsHash = $state('');
   let escrowId = $state('');
+  let explorerUrl = $state('');
   let loading = $state(false);
   let done = $state(false);
 
   async function handleDeposit() {
     try {
       loading = true;
-      status = 'Hashing terms...';
+      status = 'Hashing terms for privacy...';
 
       const salt = crypto.randomUUID();
       termsHash = await commitTerms(terms, salt);
       status = 'Terms hashed. Waiting for Face ID...';
 
       await passkeyAdapter.signWithPasskey({ amount, termsHash });
-      status = 'Signed. Locking funds in Trustless Work...';
+      status = 'Signed. Submitting to Stellar testnet...';
 
       escrowId = await tw.fundEscrow('alice', counterparty, amount, termsHash, 'USDC');
+      explorerUrl = tw.getExplorerUrl('fund') ?? '';
 
       escrowStore.update(s => ({ ...s, escrowId }));
       done = true;
-      status = 'Funds locked.';
+      status = 'Funds locked on Stellar testnet.';
     } catch (e) {
       status = 'Error: ' + e;
     } finally {
@@ -62,10 +64,13 @@
 
   {#if !done}
     <button onclick={handleDeposit} disabled={loading}>
-      {loading ? 'Processing...' : '🔒 Lock with Face ID'}
+      {loading ? 'Submitting to Stellar...' : '🔒 Lock with Face ID'}
     </button>
   {:else}
-    <div class="success-banner">✅ Funds locked successfully.</div>
+    <div class="success-banner">✅ Funds locked on Stellar testnet.</div>
+    {#if explorerUrl}
+      <a href={explorerUrl} target="_blank" class="explorer-link">🔍 Verify on StellarExpert →</a>
+    {/if}
     <button onclick={() => goto('/deliver')} style="margin-top: 1rem; background: linear-gradient(135deg, #1f2833, #45a29e);">
       Next → Deliver
     </button>
@@ -75,7 +80,7 @@
     <div class="status-box">
       <strong>Status:</strong> {status}
       {#if termsHash}
-        <div style="margin-top:10px"><strong>Privacy Hash:</strong><span class="hash-text">{termsHash}</span></div>
+        <div style="margin-top:10px"><strong>Privacy Hash (on-chain):</strong><span class="hash-text">{termsHash}</span></div>
       {/if}
       {#if escrowId}
         <div style="margin-top:10px"><strong>Escrow ID:</strong><span class="hash-text">{escrowId}</span></div>
@@ -92,4 +97,11 @@
     font-size: 1.1rem; font-weight: 700;
     text-align: center; box-sizing: border-box;
   }
+  .explorer-link {
+    display: block; margin-top: 0.8rem;
+    text-align: center; color: var(--secondary);
+    font-size: 0.9rem; font-weight: 600;
+    text-decoration: none;
+  }
+  .explorer-link:hover { text-decoration: underline; }
 </style>

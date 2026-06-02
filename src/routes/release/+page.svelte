@@ -11,12 +11,12 @@
   let status = $state('');
   let matchStatus = $state('');
   let isMatch = $state(false);
+  let explorerUrl = $state('');
   let loading = $state(false);
   let released = $state(false);
 
   async function verifyFile() {
     if (!files || files.length === 0) return;
-
     status = 'Verifying file integrity...';
     const file = files[0];
     const buffer = await file.arrayBuffer();
@@ -28,7 +28,7 @@
     matchStatus = isMatch
       ? '✅ File matches the on-chain evidence hash.'
       : expectedHash
-        ? `⚠️ Hash mismatch. File may be tampered.\nFile: ${calculatedHash.slice(0,20)}...`
+        ? `⚠️ Hash mismatch. Calculated: ${calculatedHash.slice(0, 20)}...`
         : `📋 File hash: ${calculatedHash}`;
     status = '';
   }
@@ -38,8 +38,9 @@
       loading = true;
       status = 'Waiting for Face ID...';
       await passkeyAdapter.signWithPasskey({ action: 'release', escrowId });
-      status = 'Releasing funds via Trustless Work...';
+      status = 'Releasing funds on Stellar testnet...';
       await tw.releaseEscrow(escrowId);
+      explorerUrl = tw.getExplorerUrl('release') ?? '';
       released = true;
       status = '🎉 Payment settled on Stellar.';
     } catch (e) {
@@ -81,10 +82,13 @@
 
   {#if !released}
     <button onclick={handleRelease} disabled={loading || (expectedHash.length > 0 && !isMatch)}>
-      {loading ? 'Processing...' : '✅ Approve & Release Funds'}
+      {loading ? 'Submitting to Stellar...' : '✅ Approve & Release Funds'}
     </button>
   {:else}
     <div class="success-banner">🎉 Payment settled on Stellar in seconds.</div>
+    {#if explorerUrl}
+      <a href={explorerUrl} target="_blank" class="explorer-link">🔍 Verify on StellarExpert →</a>
+    {/if}
   {/if}
 
   {#if status && !released}
@@ -96,8 +100,12 @@
   .success-banner {
     width: 100%; padding: 1.2rem;
     background: linear-gradient(135deg, #45a29e, #66fcf1);
-    color: #0b0c10; border-radius: 12px;
-    font-size: 1.1rem; font-weight: 700;
-    text-align: center; box-sizing: border-box;
+    color: #0b0c10; border-radius: 12px; font-size: 1.1rem;
+    font-weight: 700; text-align: center; box-sizing: border-box;
   }
+  .explorer-link {
+    display: block; margin-top: 0.8rem; text-align: center;
+    color: var(--secondary); font-size: 0.9rem; font-weight: 600; text-decoration: none;
+  }
+  .explorer-link:hover { text-decoration: underline; }
 </style>

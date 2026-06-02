@@ -11,14 +11,12 @@
   let status = $state('');
   let evidenceHash = $state('');
   let ipfsCid = $state('');
+  let explorerUrl = $state('');
   let loading = $state(false);
   let done = $state(false);
 
   async function handleDeliver() {
-    if (!files || files.length === 0) {
-      status = 'Please select a file.';
-      return;
-    }
+    if (!files || files.length === 0) { status = 'Please select a file.'; return; }
 
     try {
       loading = true;
@@ -31,12 +29,10 @@
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
 
       if (!res.ok) {
-        // Fallback: client-side hash if server unavailable
-        status = 'Server upload failed, computing hash locally...';
+        status = 'Server unavailable, computing hash locally...';
         const buffer = await file.arrayBuffer();
         const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-        evidenceHash = Array.from(new Uint8Array(hashBuffer))
-          .map(b => b.toString(16).padStart(2, '0')).join('');
+        evidenceHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
         ipfsCid = 'Qm' + evidenceHash.slice(0, 44);
       } else {
         const data = await res.json();
@@ -44,16 +40,16 @@
         ipfsCid = data.cid;
       }
 
-      status = `Uploaded (CID: ${ipfsCid.slice(0, 20)}...). Waiting for Face ID...`;
-
+      status = `Uploaded to IPFS. Waiting for Face ID...`;
       await passkeyAdapter.signWithPasskey({ escrowId, evidenceHash });
 
-      status = 'Writing delivery proof to smart contract...';
+      status = 'Recording evidence hash on Stellar testnet...';
       await tw.setEvidence(escrowId, evidenceHash);
+      explorerUrl = tw.getExplorerUrl('evidence') ?? '';
 
       escrowStore.update(s => ({ ...s, evidenceHash, ipfsCid }));
       done = true;
-      status = 'Delivery recorded on-chain.';
+      status = 'Delivery proven on-chain.';
     } catch (e) {
       status = 'Error: ' + e;
     } finally {
@@ -80,10 +76,13 @@
 
   {#if !done}
     <button onclick={handleDeliver} disabled={loading}>
-      {loading ? 'Processing...' : '📦 Submit & Prove'}
+      {loading ? 'Submitting to Stellar...' : '📦 Submit & Prove'}
     </button>
   {:else}
-    <div class="success-banner">✅ Delivery proven on-chain.</div>
+    <div class="success-banner">✅ Delivery proven on Stellar testnet.</div>
+    {#if explorerUrl}
+      <a href={explorerUrl} target="_blank" class="explorer-link">🔍 Verify on StellarExpert →</a>
+    {/if}
     <button onclick={() => goto('/release')} style="margin-top: 1rem; background: linear-gradient(135deg, #1f2833, #45a29e);">
       Next → Release
     </button>
@@ -106,8 +105,12 @@
   .success-banner {
     width: 100%; padding: 1.2rem;
     background: linear-gradient(135deg, #45a29e, #66fcf1);
-    color: #0b0c10; border-radius: 12px;
-    font-size: 1.1rem; font-weight: 700;
-    text-align: center; box-sizing: border-box;
+    color: #0b0c10; border-radius: 12px; font-size: 1.1rem;
+    font-weight: 700; text-align: center; box-sizing: border-box;
   }
+  .explorer-link {
+    display: block; margin-top: 0.8rem; text-align: center;
+    color: var(--secondary); font-size: 0.9rem; font-weight: 600; text-decoration: none;
+  }
+  .explorer-link:hover { text-decoration: underline; }
 </style>

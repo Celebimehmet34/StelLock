@@ -1,66 +1,113 @@
-// Trustless Work SDK wrapper
-// In a real scenario, this would import the npm package for trustless-work.
-// Example: import { TrustlessWork } from 'trustless-work-sdk';
+/**
+ * Trustless Work client — real Stellar testnet transactions.
+ *
+ * Each function calls a server-side endpoint that builds, signs,
+ * and submits a real Stellar transaction. Returns txHash + explorerUrl
+ * so the user can verify on StellarExpert.
+ */
 
 export interface EscrowDetails {
-  id: string;
-  buyer: string;
-  seller: string;
-  amount: string;
-  termsHash: string;
-  token: string;
-  evidenceHash?: string;
-  status: 'funded' | 'delivered' | 'released' | 'disputed';
+	id: string;
+	buyer: string;
+	seller: string;
+	amount: string;
+	termsHash: string;
+	token: string;
+	evidenceHash?: string;
+	status: 'funded' | 'delivered' | 'released' | 'disputed';
+	txHash?: string;
+	explorerUrl?: string;
 }
 
 export const tw = {
-  /**
-   * Locks the funds in the Trustless Work escrow contract
-   */
-  async fundEscrow(
-    buyer: string, 
-    seller: string, 
-    amount: string, 
-    termsHash: string, 
-    token: string = 'USDC'
-  ): Promise<string> {
-    console.log(`[TrustlessWork] Funding escrow: ${amount} ${token} from ${buyer} to ${seller} (Terms: ${termsHash})`);
-    // MOCK: simulate contract call and return an escrow ID
-    return 'escrow_' + Math.random().toString(36).substring(2, 9);
-  },
+	/**
+	 * Locks funds in escrow → real Stellar transaction (Alice → Escrow account).
+	 * Memo encodes termsHash for on-chain privacy proof.
+	 */
+	async fundEscrow(
+		buyer: string,
+		seller: string,
+		amount: string,
+		termsHash: string,
+		token: string = 'USDC'
+	): Promise<string> {
+		const escrowId = 'esc_' + Math.random().toString(36).slice(2, 9);
 
-  /**
-   * Sets the delivery evidence (IPFS hash) for a given escrow
-   */
-  async setEvidence(escrowId: string, evidenceHash: string): Promise<boolean> {
-    console.log(`[TrustlessWork] Setting evidence for escrow ${escrowId}: ${evidenceHash}`);
-    // MOCK: simulate contract update
-    return true;
-  },
+		const res = await fetch('/api/tw/fund', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ escrowId, termsHash, amount })
+		});
 
-  /**
-   * Releases the funds to the seller upon verification
-   */
-  async releaseEscrow(escrowId: string): Promise<boolean> {
-    console.log(`[TrustlessWork] Releasing escrow ${escrowId}`);
-    // MOCK: simulate contract release
-    return true;
-  },
+		if (!res.ok) throw new Error(await res.text());
 
-  /**
-   * Gets details about an escrow
-   */
-  async getEscrow(escrowId: string): Promise<EscrowDetails> {
-    console.log(`[TrustlessWork] Fetching details for ${escrowId}`);
-    // MOCK: return dummy data
-    return {
-      id: escrowId,
-      buyer: 'alice_pubkey',
-      seller: 'bob_pubkey',
-      amount: '100',
-      termsHash: 'mock_hash',
-      token: 'USDC',
-      status: 'funded'
-    };
-  }
+		const { txHash, explorerUrl } = await res.json();
+		console.log(`[TW] Escrow funded. TX: ${txHash}`);
+		console.log(`[TW] Explorer: ${explorerUrl}`);
+
+		// Store explorerUrl in sessionStorage for UI display
+		if (typeof window !== 'undefined') {
+			sessionStorage.setItem('fund_tx', txHash);
+			sessionStorage.setItem('fund_explorer', explorerUrl);
+		}
+
+		return escrowId;
+	},
+
+	/**
+	 * Records delivery evidence hash on Stellar testnet.
+	 * Bob sends a self-payment with evidenceHash encoded in memo.
+	 */
+	async setEvidence(escrowId: string, evidenceHash: string): Promise<boolean> {
+		const res = await fetch('/api/tw/evidence', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ escrowId, evidenceHash })
+		});
+
+		if (!res.ok) throw new Error(await res.text());
+
+		const { txHash, explorerUrl } = await res.json();
+		console.log(`[TW] Evidence recorded. TX: ${txHash}`);
+		console.log(`[TW] Explorer: ${explorerUrl}`);
+
+		if (typeof window !== 'undefined') {
+			sessionStorage.setItem('evidence_tx', txHash);
+			sessionStorage.setItem('evidence_explorer', explorerUrl);
+		}
+
+		return true;
+	},
+
+	/**
+	 * Releases escrowed funds to seller → real Stellar transaction (Escrow → Bob).
+	 */
+	async releaseEscrow(escrowId: string): Promise<boolean> {
+		const res = await fetch('/api/tw/release', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ escrowId })
+		});
+
+		if (!res.ok) throw new Error(await res.text());
+
+		const { txHash, explorerUrl } = await res.json();
+		console.log(`[TW] Funds released. TX: ${txHash}`);
+		console.log(`[TW] Explorer: ${explorerUrl}`);
+
+		if (typeof window !== 'undefined') {
+			sessionStorage.setItem('release_tx', txHash);
+			sessionStorage.setItem('release_explorer', explorerUrl);
+		}
+
+		return true;
+	},
+
+	/**
+	 * Helper: get explorer URL for a stored transaction.
+	 */
+	getExplorerUrl(key: 'fund' | 'evidence' | 'release'): string | null {
+		if (typeof window === 'undefined') return null;
+		return sessionStorage.getItem(`${key}_explorer`);
+	}
 };
