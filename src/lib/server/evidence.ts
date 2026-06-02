@@ -2,39 +2,43 @@ import { PinataSDK } from 'pinata';
 import { env } from '$env/dynamic/private';
 import crypto from 'crypto';
 
-// Initialize Pinata SDK
 const pinata = new PinataSDK({
-  pinataJwt: env.PINATA_JWT || '',
-  pinataGateway: 'gateway.pinata.cloud' // Example gateway
+	pinataJwt: env.PINATA_JWT || '',
+	pinataGateway: 'gateway.pinata.cloud'
 });
 
-/**
- * Uploads a file to IPFS via Pinata and calculates its SHA-256 hash
- */
-export async function uploadEvidence(file: File): Promise<{ cid: string; hash: string }> {
-  // Convert File to Blob/Buffer
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  
-  // Calculate SHA-256 hash of the file
-  const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-  
-  // Upload to IPFS
-  const upload = await (pinata.upload as any).file(file);
-  
-  return { 
-    cid: upload.cid, 
-    hash 
-  };
+function sha256(buffer: Buffer): string {
+	return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
 /**
- * Verifies if the file matches the stored hash
+ * Uploads a file to IPFS via Pinata and returns its CID + SHA-256 hash.
+ * The hash is computed locally (always reliable). The IPFS upload is retried
+ * once; if it still fails, the caller can decide whether to proceed with the
+ * hash-only proof (the on-chain commitment) and an empty CID.
  */
+export async function uploadEvidence(file: File): Promise<{ cid: string; hash: string }> {
+	const buffer = Buffer.from(await file.arrayBuffer());
+	const hash = sha256(buffer);
+
+	if (!env.PINATA_JWT) {
+		throw new Error('PINATA_JWT not configured');
+	}
+
+	let lastErr: unknown;
+	for (let attempt = 1; attempt <= 2; attempt++) {
+		try {
+			const upload = await (pinata.upload as any).file(file);
+			return { cid: upload.cid ?? upload.IpfsHash ?? '', hash };
+		} catch (e) {
+			lastErr = e;
+			if (attempt < 2) await new Promise((r) => setTimeout(r, 800));
+		}
+	}
+	throw new Error('Pinata upload failed after retry: ' + lastErr);
+}
+
 export async function verifyEvidence(file: File, storedHash: string): Promise<boolean> {
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-  
-  return hash === storedHash;
+	const buffer = Buffer.from(await file.arrayBuffer());
+	return sha256(buffer) === storedHash;
 }

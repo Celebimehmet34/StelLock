@@ -25,6 +25,7 @@
   let loading = $state(false);
   let done = $state(false);
   let copied = $state(false);
+  let warning = $state('');
 
   async function copyEscrowId() {
     await navigator.clipboard.writeText(escrowId);
@@ -54,6 +55,10 @@
       if (ipfsRes.ok) {
         const { cid } = await ipfsRes.json();
         encryptedCid = cid;
+      } else {
+        // Hash commitment still goes on-chain (privacy proof intact), but the
+        // encrypted blob isn't persisted → buyer can't re-read terms later.
+        warning = '⚠️ IPFS storage failed — your terms are committed on-chain (hash) but won\'t be re-readable later. You can still proceed.';
       }
 
       termsHash = await sha256hex(encryptedJson);
@@ -150,6 +155,10 @@
     <a href="/deliver" class="demo-link">Demo: continue as the seller →</a>
   {/if}
 
+  {#if warning}
+    <div class="status-box warning-box">{warning}</div>
+  {/if}
+
   {#if status}
     <div class="status-box">
       <strong>Status:</strong> {status}
@@ -181,6 +190,7 @@
   .copy-btn:hover { background:rgba(102,252,241,0.2); transform:none; }
   .demo-link { display:block; margin-top:1rem; text-align:center; color:var(--text-main); font-size:0.78rem; text-decoration:none; opacity:0.7; }
   .demo-link:hover { opacity:1; color:var(--secondary); }
+  .warning-box { border-color:#f0a500; background:rgba(240,165,0,0.1); color:#f0a500; }
   .oracle-bar { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; background:rgba(102,252,241,0.05); border:1px solid rgba(102,252,241,0.15); border-radius:10px; padding:0.6rem 0.9rem; margin-bottom:1.5rem; font-size:0.78rem; }
   .oracle-label { color:var(--primary); font-weight:700; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; }
   .oracle-price { color:var(--text-light); }

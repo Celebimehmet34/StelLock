@@ -139,7 +139,8 @@ export async function recordEvidenceTx(
 export async function releaseEscrowTx(
 	escrowId: string,
 	sellerPublicKey: string | undefined,
-	buyerSecretKey?: string
+	buyerSecretKey?: string,
+	verifiedHash?: string
 ): Promise<{ txHash: string; explorerUrl: string }> {
 	const buyer = userKeypair(buyerSecretKey);
 
@@ -149,6 +150,15 @@ export async function releaseEscrowTx(
 	if (escrow.status === 'released') throw new Error('Escrow already released');
 	if (escrow.buyerPublicKey !== buyer.publicKey()) {
 		throw new Error('Only the buyer who funded this escrow can release it');
+	}
+	// Cannot release before the seller has delivered (server-enforced, not just UI).
+	if (escrow.status !== 'delivered') {
+		throw new Error('Cannot release — the seller has not delivered yet');
+	}
+	// Defense-in-depth: if the buyer's app sends the hash it verified, it must
+	// match the on-chain evidence hash. Prevents releasing against a wrong/stale file.
+	if (verifiedHash && escrow.evidenceHash && verifiedHash !== escrow.evidenceHash) {
+		throw new Error('Verification mismatch — the file does not match the on-chain evidence');
 	}
 
 	const destination = sellerPublicKey || escrow.sellerPublicKey;

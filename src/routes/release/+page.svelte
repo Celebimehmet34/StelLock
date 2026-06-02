@@ -69,7 +69,7 @@
       await passkeyAdapter.signWithPasskey({ action: 'release', escrowId });
 
       status = 'Releasing funds on Stellar testnet...';
-      const result = await tw.releaseEscrow($userStore.secretKey, escrowId, sellerPublicKey || undefined);
+      const result = await tw.releaseEscrow($userStore.secretKey, escrowId, sellerPublicKey || undefined, expectedHash || undefined);
       explorerUrl = result.explorerUrl;
 
       historyStore.add($userStore.publicKey, {

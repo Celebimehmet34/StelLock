@@ -57,12 +57,13 @@ export const tw = {
 	async releaseEscrow(
 		secretKey: string,
 		escrowId: string,
-		sellerPublicKey?: string
+		sellerPublicKey?: string,
+		verifiedHash?: string
 	): Promise<EscrowResult> {
 		const res = await fetch('/api/tw/release', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ escrowId, sellerPublicKey, secretKey })
+			body: JSON.stringify({ escrowId, sellerPublicKey, secretKey, verifiedHash })
 		});
 		if (!res.ok) throw new Error(await res.text());
 		return res.json();
