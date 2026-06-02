@@ -34,7 +34,7 @@
       userStore.login({ username: username.trim(), publicKey, secretKey });
       status = 'Logged in!';
       await new Promise(r => setTimeout(r, 300));
-      goto('/deposit');
+      goto('/');
     } catch (e) {
       status = 'Error: ' + e;
     } finally {

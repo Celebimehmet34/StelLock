@@ -31,6 +31,7 @@
 
     <div class="nav-center">
       {#if $userStore.isLoggedIn}
+        <a href="/">Home</a>
         <a href="/deposit">Deposit</a>
         <a href="/deliver">Deliver</a>
         <a href="/release">Release</a>
