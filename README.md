@@ -1,42 +1,82 @@
-# sv
+# Emanet — B2B Escrow Infrastructure
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+*"Trustless Work escrow'unun üzerine verifiable delivery, ticari gizlilik ve kripto bilgisi gerektirmeyen erişim katmanı."*
 
-## Creating a project
+Emanet, serbest çalışanlar (freelancer) ve müşteriler arasındaki "teslim ettim para gelmedi" veya "parayı ödedim iş gelmedi" şeklindeki güven problemini çözmeyi hedefleyen; Stellar ağı ve Trustless Work altyapısı üzerine inşa edilmiş yeni nesil bir B2B ödeme (escrow) altyapısıdır. 
 
-If you're seeing this, you've probably already done this step. Congrats!
+---
 
-```sh
-# create a new project
-npx sv create my-app
-```
+## 🚀 Öne Çıkan Özellikler
 
-To recreate this project with the same configuration:
+Emanet, basit bir akıllı sözleşme uygulamasından öte, kullanıcı deneyimine odaklanan 3 temel katman ekler:
 
-```sh
-# recreate this project
-npx sv@0.15.3 create --template minimal --types ts --install npm .
-```
+1. **Teslimat Kanıtı (Verifiable Delivery):** "İşi teslim ettim" demek yerine, teslim edilen dosyanın kendisi kriptografik olarak kanıtlanır (IPFS + SHA-256).
+2. **Ticari Gizlilik (Privacy Layer - Commitment Scheme):** Taraflar arasındaki ticari koşullar düz metin (plaintext) olarak zincire yazılmaz. Koşullar tuzlanarak (salt) hash'lenir.
+3. **Kripto Bilgisi Gerektirmeyen Erişim (Passkey):** Kullanıcıların *seed phrase* ezberlemesine veya eklenti cüzdan kurmasına gerek yoktur. İşlemler Face ID / Touch ID biyometrik verileri ile onaylanır.
 
-## Developing
+---
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## 🛠 Kullanılan Teknolojiler ve Mimari
 
-```sh
+Proje modern, hızlı ve güvenli bir teknoloji yığını (stack) kullanılarak geliştirilmiştir:
+
+*   **SvelteKit:** Sistemin B2B arayüzünü (Reference App) simüle etmek için kullanılan son derece hızlı frontend framework'ü.
+*   **Stellar Network & Trustless Work:** Temel escrow (emanet) mantığı, paranın kilitlenmesi ve serbest bırakılması süreçleri için.
+*   **smart-account-kit:** Cüzdan altyapısını soyutlayarak (Account Abstraction) biyometrik imzalama (Passkey) süreçlerini yönetmek için.
+*   **Pinata (IPFS):** Merkeziyetsiz, sansürlenemez ve güvenli dosya depolama altyapısı.
+*   **Web Crypto API:** İstemci tarafında hızlı ve güvenli SHA-256 özetleme (hashing) işlemleri için.
+
+---
+
+## 🔄 Sistem Nasıl İşliyor? (3 Aşamalı Akış)
+
+Sistem uçtan uca şu şekilde çalışır:
+
+### 1. Deposit (Para Kilitleme)
+*   **Alıcı (Müşteri)**, ödemek istediği USDC miktarını, karşı tarafı ve hizmet **koşullarını** girer.
+*   Sistem koşulları `SHA-256(koşullar + salt)` formatında hash'ler.
+*   Alıcı işlemi Face ID / Touch ID ile onaylar.
+*   Miktar ve sadece hash'lenmiş koşul (Privacy Hash) Trustless Work sözleşmesine kilitlenir. Zincirde şeffaf veri bulunmaz.
+
+### 2. Deliver (Teslimat ve Kanıt)
+*   **Satıcı (Freelancer)** işi tamamladığında dosyayı sisteme yükler.
+*   Dosya **IPFS ağına (Pinata)** yüklenir. Eş zamanlı olarak dosyanın SHA-256 özeti alınır.
+*   Dosya hash'i (Evidence Hash) Trustless Work sözleşmesinin `evidence` alanına işlenir. Satıcı teslimatı zincir üzerinde kanıtlamış olur.
+
+### 3. Release (Onay ve Ödeme)
+*   **Alıcı (Müşteri)** IPFS'ten indirdiği dosyayı sisteme geri yükler.
+*   Sistem yüklenen dosyanın hash'ini alır ve **zincirdeki hash ile karşılaştırır**.
+*   Dosyalar eşleşirse (hiçbir manipülasyon yoksa) sistem yeşil ışık yakar.
+*   Alıcı tekrar Face ID ile imza atar ve kilitli fonlar anında satıcının hesabına aktarılır.
+
+---
+
+## 🛡 Privacy Track (Gizlilik Parkuru) İddiası
+
+Bu proje hackathon'un **Privacy Track** yönergelerine tamamen uygundur. 
+
+Ticari sözleşme koşulları, miktar ve anlaşma detayları halka açık blok zincirine düz metin (**plaintext**) olarak kaydedilmez. Bunun yerine bir **Commitment Scheme** (Taahhüt Şeması) kullanılır. Sözleşme koşulları ve rastgele üretilen bir 'salt' birleştirilerek SHA-256 ile özetlenir (`hash(terms + salt)`) ve Trustless Work sözleşmesinin `description` alanına bu özet yazılır. Yalnızca salt değerini bilen taraflar sözleşmeyi doğrulayabilirken, zinciri izleyen 3. şahıslar ticari sırları göremez.
+
+---
+
+## 💻 Kurulum ve Çalıştırma
+
+Projeyi yerel ortamınızda test etmek için:
+
+```bash
+# 1. Repoyu klonlayın ve dizine girin
+git clone <repo-url>
+cd IBW26takim7
+
+# 2. Bağımlılıkları yükleyin
+npm install
+
+# 3. Ortam değişkenlerini ayarlayın
+# .env.example dosyasının adını .env yapın ve içine Pinata/Stellar bilgilerinizi girin.
+cp .env.example .env
+
+# 4. Geliştirme sunucusunu başlatın
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+Uygulama `http://localhost:5173` adresinde çalışacaktır. Deposit -> Deliver -> Release sekmelerini takip ederek senaryoyu deneyimleyebilirsiniz.
