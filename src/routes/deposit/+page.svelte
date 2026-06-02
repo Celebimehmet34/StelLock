@@ -7,6 +7,14 @@
   import { onMount } from 'svelte';
 
   let amount = $state('100');
+  let price = $state<{ xlm_usd: number | null; xlm_eur: number | null; xlm_try: number | null; source: string } | null>(null);
+
+  async function fetchPrice() {
+    try {
+      const res = await fetch('/api/price');
+      if (res.ok) price = await res.json();
+    } catch {}
+  }
   let counterparty = $state('');
   let terms = $state('I will pay 100 USDC for the landing page design. Due in 7 days.');
   let status = $state('');
@@ -19,6 +27,7 @@
 
   onMount(() => {
     if (!$userStore.isLoggedIn) goto('/login');
+    fetchPrice();
   });
 
   async function handleDeposit() {
@@ -78,6 +87,21 @@
   <h1>Deposit</h1>
   <p class="subtitle">Lock funds · Terms encrypted with your key</p>
 
+  {#if price}
+    <div class="oracle-bar">
+      <span class="oracle-label">📡 Reflector Oracle</span>
+      {#if price.xlm_usd}
+        <span class="oracle-price">1 XLM = <strong>${price.xlm_usd.toFixed(4)}</strong></span>
+        <span class="oracle-sep">·</span>
+        <span class="oracle-price">€{price.xlm_eur?.toFixed(4)}</span>
+        <span class="oracle-sep">·</span>
+        <span class="oracle-price">₺{price.xlm_try?.toFixed(2)}</span>
+      {:else}
+        <span class="oracle-price">Price unavailable</span>
+      {/if}
+    </div>
+  {/if}
+
   <div class="form-group">
     <label for="amount">Amount (USDC)</label>
     <input type="number" id="amount" bind:value={amount} disabled={done} />
@@ -129,4 +153,9 @@
   .explorer-link { display:block; margin-top:0.8rem; text-align:center; color:var(--secondary); font-size:0.9rem; font-weight:600; text-decoration:none; }
   .explorer-link:hover { text-decoration:underline; }
   .next-btn { margin-top:1rem; background:linear-gradient(135deg,#1f2833,#45a29e); }
+  .oracle-bar { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; background:rgba(102,252,241,0.05); border:1px solid rgba(102,252,241,0.15); border-radius:10px; padding:0.6rem 0.9rem; margin-bottom:1.5rem; font-size:0.78rem; }
+  .oracle-label { color:var(--primary); font-weight:700; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; }
+  .oracle-price { color:var(--text-light); }
+  .oracle-price strong { color:var(--secondary); }
+  .oracle-sep { color:var(--glass-border); }
 </style>

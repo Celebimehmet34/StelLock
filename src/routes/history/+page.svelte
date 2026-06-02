@@ -72,6 +72,11 @@
           <a href={tx.explorerUrl} target="_blank" class="explorer-btn">
             🔍 Verify on StellarExpert →
           </a>
+          {#if tx.type === 'deliver'}
+            <a href="/dispute?escrowId={tx.escrowId}" class="dispute-btn">
+              ⚖️ Raise Dispute
+            </a>
+          {/if}
         </div>
       {/each}
     </div>
@@ -175,4 +180,6 @@
   }
 
   .explorer-btn:hover { opacity: 0.7; }
+  .dispute-btn { display:inline-block; margin-top:0.5rem; margin-left:1rem; font-size:0.82rem; color:#f0a500; text-decoration:none; font-weight:600; transition:opacity 0.2s; }
+  .dispute-btn:hover { opacity:0.7; }
 </style>

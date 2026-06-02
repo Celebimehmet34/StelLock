@@ -1,0 +1,32 @@
+NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
+FEDERATION_SERVER=""
+TRANSFER_SERVER=""
+
+[DOCUMENTATION]
+ORG_NAME="Emanet"
+ORG_DBA="Emanet B2B Infrastructure"
+ORG_URL="https://emanet.xyz"
+ORG_DESCRIPTION="Verifiable delivery and privacy layer on top of Trustless Work's Soroban escrow. Built at IBW26 Hackathon."
+ORG_GITHUB="https://github.com/GuldalAbdussamed/IBW26takim7"
+
+[[PRINCIPALS]]
+name="Emanet Team"
+github="GuldalAbdussamed"
+
+[[CURRENCIES]]
+code="USDC"
+issuer="GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+display_decimals=2
+name="USD Coin (Testnet)"
+desc="Circle USDC on Stellar testnet — used as escrow collateral"
+is_asset_anchored=true
+anchor_asset_type="fiat"
+anchor_asset="USD"
+attestation_of_reserve=""
+status="test"
+
+[[CONTRACTS]]
+name="Trustless Work Escrow"
+description="Battle-tested Soroban escrow primitive — Emanet builds on top of this"
+address="CBMEZ3FEJISOCYOTRXJAPUZEPH4IL43P6VQ4FQOZSIQEFL5HJH3WDYHQ"
+network="testnet"

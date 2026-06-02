@@ -35,6 +35,7 @@
         <a href="/deliver">Deliver</a>
         <a href="/release">Release</a>
         <a href="/history">History</a>
+        <a href="/dispute" class="dispute-link">⚖️ Dispute</a>
       {:else}
         <a href="/register">Register</a>
         <a href="/login">Login</a>
@@ -71,6 +72,8 @@
   .nav-center { display: flex; gap: 2rem; }
   .nav-center a { color: var(--text-main); text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: color 0.2s; }
   .nav-center a:hover { color: var(--secondary); }
+  .dispute-link { color: #f0a500 !important; }
+  .dispute-link:hover { color: #f44336 !important; }
   .nav-user { display: flex; align-items: center; gap: 1rem; }
   .user-chip { display: flex; align-items: center; gap: 0.5rem; background: rgba(102,252,241,0.08); border: 1px solid rgba(102,252,241,0.2); border-radius: 20px; padding: 0.4rem 0.9rem; font-size: 0.82rem; }
   .user-name { color: var(--text-light); font-weight: 700; }
