@@ -70,6 +70,38 @@ export const tw = {
 		return res.json();
 	},
 
+	/**
+	 * Freighter flow: build unsigned tx on server → sign in Freighter → submit.
+	 * Returns txHash + explorerUrl just like the password-based methods.
+	 */
+	async freighterTransact(
+		action: string,
+		publicKey: string,
+		params: Record<string, string>,
+		signFn: (xdr: string, networkPassphrase: string) => Promise<string>
+	): Promise<EscrowResult> {
+		// 1. Build unsigned tx
+		const buildRes = await fetch('/api/tw/build', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ action, publicKey, ...params })
+		});
+		if (!buildRes.ok) throw new Error(await buildRes.text());
+		const { xdr, networkPassphrase } = await buildRes.json();
+
+		// 2. Sign with Freighter
+		const signedXdr = await signFn(xdr, networkPassphrase);
+
+		// 3. Submit
+		const submitRes = await fetch('/api/tw/submit', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ signedXdr })
+		});
+		if (!submitRes.ok) throw new Error(await submitRes.text());
+		return submitRes.json();
+	},
+
 	/** Look up an escrow by ID from the server (works for any party, any device). */
 	async getEscrow(escrowId: string): Promise<EscrowInfo | null> {
 		const res = await fetch(`/api/escrow/${encodeURIComponent(escrowId)}`);

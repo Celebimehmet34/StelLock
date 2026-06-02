@@ -48,6 +48,7 @@
     <div class="nav-user">
       {#if $userStore.isLoggedIn}
         <div class="user-chip">
+          <span class="wallet-icon">{$userStore.walletType === 'freighter' ? '🦊' : '🔑'}</span>
           <span class="user-name">{$userStore.username}</span>
           <span class="online-dot">●</span>
         </div>
@@ -82,6 +83,7 @@
   .zk-link { color: #66fcf1 !important; }
   .nav-user { display: flex; align-items: center; gap: 1rem; }
   .user-chip { display: flex; align-items: center; gap: 0.5rem; background: rgba(102,252,241,0.08); border: 1px solid rgba(102,252,241,0.2); border-radius: 20px; padding: 0.4rem 0.9rem; font-size: 0.82rem; }
+  .wallet-icon { font-size:0.9rem; }
   .user-name { color: var(--text-light); font-weight: 700; }
   .online-dot { color: #4caf50; font-size: 0.7rem; }
   .key-btn { background: rgba(102,252,241,0.07); border: 1px solid rgba(102,252,241,0.2); color: var(--secondary); padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.75rem; cursor: pointer; width: auto; margin: 0; font-weight: 600; box-shadow: none; text-transform: none; letter-spacing: 0; font-family: monospace; transition: all 0.2s; }

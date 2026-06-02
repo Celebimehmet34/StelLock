@@ -67,16 +67,20 @@ function createHistoryStore() {
 export const historyStore = createHistoryStore();
 
 // ── User session ───────────────────────────────────────────────────────────────
+export type WalletType = 'freighter' | 'password';
+
 export interface UserSession {
 	isLoggedIn: boolean;
+	walletType: WalletType;
 	username: string;
 	publicKey: string;
-	secretKey: string;
+	secretKey: string; // empty for freighter — it signs internally
 }
 
 function createUserStore() {
 	const { subscribe, set, update } = writable<UserSession>({
 		isLoggedIn: false,
+		walletType: 'password',
 		username: '',
 		publicKey: '',
 		secretKey: ''
@@ -95,7 +99,7 @@ function createUserStore() {
 			historyStore.load(session.publicKey);
 		},
 		logout() {
-			set({ isLoggedIn: false, username: '', publicKey: '', secretKey: '' });
+			set({ isLoggedIn: false, walletType: 'password', username: '', publicKey: '', secretKey: '' });
 			historyStore.clear();
 			if (typeof sessionStorage !== 'undefined') {
 				sessionStorage.removeItem('emanet_session');
