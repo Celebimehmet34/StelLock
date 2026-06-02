@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { encryptTerms, sha256hex } from '$lib/utils/privacy';
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
-  import { fundEscrowTx } from '$lib/stellar/transactions';
+  import { tw } from '$lib/stellar/tw-client';
   import { escrowStore, userStore, historyStore } from '$lib/store';
   import { onMount } from 'svelte';
 
@@ -56,7 +56,7 @@
 
       status = 'Submitting to Stellar testnet...';
       const newEscrowId = 'esc_' + Math.random().toString(36).slice(2, 9);
-      const result = await fundEscrowTx($userStore.secretKey, newEscrowId, termsHash, amount);
+      const result = await tw.fundEscrow($userStore.secretKey, newEscrowId, termsHash, amount);
 
       escrowId = newEscrowId;
       explorerUrl = result.explorerUrl;

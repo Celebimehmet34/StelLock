@@ -3,14 +3,12 @@ import { releaseEscrowTx } from '$lib/server/stellar-client';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
-	const { escrowId } = await request.json();
+	const { escrowId, sellerPublicKey, secretKey } = await request.json();
 
-	if (!escrowId) {
-		throw error(400, 'Missing escrowId');
-	}
+	if (!escrowId) throw error(400, 'Missing escrowId');
 
 	try {
-		const result = await releaseEscrowTx(escrowId);
+		const result = await releaseEscrowTx(escrowId, sellerPublicKey, secretKey);
 		return json(result);
 	} catch (e) {
 		console.error('[TW release]', e);

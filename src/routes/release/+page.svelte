@@ -1,6 +1,6 @@
 <script lang="ts">
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
-  import { releaseEscrowTx } from '$lib/stellar/transactions';
+  import { tw } from '$lib/stellar/tw-client';
   import { decryptTerms } from '$lib/utils/privacy';
   import { escrowStore, userStore, historyStore } from '$lib/store';
   import { get } from 'svelte/store';
@@ -47,8 +47,7 @@
       await passkeyAdapter.signWithPasskey({ action: 'release', escrowId });
 
       status = 'Releasing funds on Stellar testnet...';
-      const targetSeller = sellerPublicKey || 'GA2L56GH7ZB4PRKVGXEXD2E5JZBHIU7IDI2XDHWKWHYLTWFC7G6VG5SB';
-      const result = await releaseEscrowTx($userStore.secretKey, targetSeller, escrowId);
+      const result = await tw.releaseEscrow($userStore.secretKey, escrowId, sellerPublicKey || undefined);
 
       explorerUrl = result.explorerUrl;
 
@@ -57,7 +56,7 @@
         escrowId,
         txHash: result.txHash,
         explorerUrl: result.explorerUrl,
-        meta: { sellerPublicKey: targetSeller }
+        meta: { sellerPublicKey: sellerPublicKey || 'default' }
       });
 
       released = true;

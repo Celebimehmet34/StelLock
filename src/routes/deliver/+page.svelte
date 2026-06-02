@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
-  import { recordEvidenceTx } from '$lib/stellar/transactions';
+  import { tw } from '$lib/stellar/tw-client';
   import { escrowStore, userStore, historyStore } from '$lib/store';
   import { get } from 'svelte/store';
   import { onMount } from 'svelte';
@@ -49,7 +49,7 @@
       await passkeyAdapter.signWithPasskey({ escrowId, evidenceHash });
 
       status = 'Recording evidence on Stellar testnet...';
-      const result = await recordEvidenceTx($userStore.secretKey, escrowId, evidenceHash);
+      const result = await tw.setEvidence($userStore.secretKey, escrowId, evidenceHash);
       explorerUrl = result.explorerUrl;
 
       escrowStore.update(s => ({ ...s, evidenceHash, ipfsCid }));
