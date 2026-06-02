@@ -2,47 +2,43 @@
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
   import { tw } from '$lib/stellar/tw-client';
 
-  let escrowId = 'escrow_xyz123';
-  let files: FileList;
-  let status = '';
-  let evidenceHash = '';
-  let loading = false;
+  let escrowId = $state('escrow_xyz123');
+  let files = $state<FileList | undefined>(undefined);
+  let status = $state('');
+  let evidenceHash = $state('');
+  let ipfsCid = $state('');
+  let loading = $state(false);
 
   async function handleDeliver() {
     if (!files || files.length === 0) {
       status = 'Please select a file to deliver.';
       return;
     }
-    
+
     try {
       loading = true;
-      status = 'Generating file hash and uploading to IPFS...';
-      
+      status = 'Hashing file...';
+
       const file = files[0];
-      
-      // Calculate SHA-256 using subtle crypto (Client-side simulation)
       const buffer = await file.arrayBuffer();
       const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      evidenceHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      
-      // Normally we would call a server endpoint to safely use the Pinata Secret Key
-      // e.g. const res = await fetch('/api/upload', { body: formData });
-      status = `File hashed. Uploading to IPFS...`;
-      await new Promise(r => setTimeout(r, 1000)); // Simulate upload
-      const dummyCid = 'QmX...' + Math.random().toString(36).substring(2, 8);
-      
-      status = `Uploaded (CID: ${dummyCid}). Waiting for Passkey signature...`;
+      evidenceHash = Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 
-      // Sign transaction
+      status = 'Uploading to IPFS...';
+      // In production: POST to /api/upload (server uses PINATA_JWT)
+      await new Promise(r => setTimeout(r, 1000));
+      ipfsCid = 'Qm' + evidenceHash.slice(0, 44);
+
+      status = `Uploaded (CID: ${ipfsCid.slice(0, 20)}...). Waiting for Face ID...`;
+
       await passkeyAdapter.signWithPasskey({ escrowId, evidenceHash });
-      
-      status = 'Signed! Writing delivery proof to smart contract...';
-      
-      // Update Trustless Work contract
+
+      status = 'Writing delivery proof to smart contract...';
       await tw.setEvidence(escrowId, evidenceHash);
 
-      status = 'Delivery recorded on-chain successfully!';
+      status = 'Delivery recorded on-chain.';
     } catch (e) {
       status = 'Error: ' + e;
     } finally {
@@ -52,7 +48,7 @@
 </script>
 
 <svelte:head>
-  <title>Deliver | Emanet Infrastructure</title>
+  <title>Deliver | Emanet</title>
 </svelte:head>
 
 <div class="glass-card">
@@ -66,21 +62,28 @@
 
   <div class="form-group">
     <label for="file">Work File / Deliverable</label>
-    <input type="file" id="file" bind:files={files} style="padding: 0.8rem;" />
+    <input type="file" id="file" bind:files style="padding: 0.8rem;" />
   </div>
 
-  <button on:click={handleDeliver} disabled={loading}>
-    {loading ? 'Processing...' : 'Submit & Prove'}
+  <button onclick={handleDeliver} disabled={loading}>
+    {loading ? 'Processing...' : '📦 Submit & Prove'}
   </button>
 
   {#if status}
     <div class="status-box">
       <strong>Status:</strong> {status}
-      
+
       {#if evidenceHash}
         <div style="margin-top: 10px">
-          <strong>Cryptographic Proof (SHA-256):</strong>
+          <strong>SHA-256 Proof:</strong>
           <span class="hash-text">{evidenceHash}</span>
+        </div>
+      {/if}
+
+      {#if ipfsCid}
+        <div style="margin-top: 10px">
+          <strong>IPFS CID:</strong>
+          <span class="hash-text">{ipfsCid}</span>
         </div>
       {/if}
     </div>

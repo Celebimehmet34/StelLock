@@ -3,33 +3,28 @@
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
   import { tw } from '$lib/stellar/tw-client';
 
-  let amount = '100';
-  let counterparty = 'bob_freelancer_key';
-  let terms = 'I will pay 100 USDC for the landing page design. Due in 7 days.';
-  
-  let status = '';
-  let termsHash = '';
-  let escrowId = '';
-  let loading = false;
+  let amount = $state('100');
+  let counterparty = $state('bob_freelancer_key');
+  let terms = $state('I will pay 100 USDC for the landing page design. Due in 7 days.');
+  let status = $state('');
+  let termsHash = $state('');
+  let escrowId = $state('');
+  let loading = $state(false);
 
   async function handleDeposit() {
     try {
       loading = true;
       status = 'Hashing terms...';
-      
-      // Step 1: Hash terms to ensure privacy on-chain
+
       const salt = crypto.randomUUID();
       termsHash = await commitTerms(terms, salt);
-      status = 'Terms hashed securely. Waiting for Passkey signature...';
+      status = 'Terms hashed securely. Waiting for Face ID...';
 
-      // Step 2: Sign with Passkey (Biometric)
       const signature = await passkeyAdapter.signWithPasskey({ amount, termsHash });
-      status = `Signed with Face ID (Sig: ${signature.substring(0,10)}...). Locking funds...`;
+      status = `Signed (${signature.slice(0, 10)}...). Locking funds...`;
 
-      // Step 3: Call Trustless Work SDK to lock funds
       escrowId = await tw.fundEscrow('alice', counterparty, amount, termsHash, 'USDC');
-      
-      status = 'Success! Funds locked in Trustless Work escrow.';
+      status = 'Funds locked in Trustless Work escrow.';
     } catch (e) {
       status = 'Error: ' + e;
     } finally {
@@ -39,7 +34,7 @@
 </script>
 
 <svelte:head>
-  <title>Deposit | Emanet Infrastructure</title>
+  <title>Deposit | Emanet</title>
 </svelte:head>
 
 <div class="glass-card">
@@ -52,7 +47,7 @@
   </div>
 
   <div class="form-group">
-    <label for="counterparty">Freelancer / Seller</label>
+    <label for="counterparty">Freelancer / Seller Address</label>
     <input type="text" id="counterparty" bind:value={counterparty} />
   </div>
 
@@ -61,14 +56,14 @@
     <textarea id="terms" rows="4" bind:value={terms}></textarea>
   </div>
 
-  <button on:click={handleDeposit} disabled={loading}>
-    {loading ? 'Processing...' : 'Lock with Face ID'}
+  <button onclick={handleDeposit} disabled={loading}>
+    {loading ? 'Processing...' : '🔒 Lock with Face ID'}
   </button>
 
   {#if status}
     <div class="status-box">
       <strong>Status:</strong> {status}
-      
+
       {#if termsHash}
         <div style="margin-top: 10px">
           <strong>Privacy Hash (On-Chain):</strong>

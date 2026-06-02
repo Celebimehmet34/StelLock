@@ -2,48 +2,49 @@
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
   import { tw } from '$lib/stellar/tw-client';
 
-  let escrowId = 'escrow_xyz123';
-  let expectedHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'; // example hash
-  let files: FileList;
-  let status = '';
-  let matchStatus = '';
-  let isMatch = false;
-  let loading = false;
+  let escrowId = $state('escrow_xyz123');
+  let expectedHash = $state('');
+  let files = $state<FileList | undefined>(undefined);
+  let status = $state('');
+  let matchStatus = $state('');
+  let isMatch = $state(false);
+  let loading = $state(false);
+  let released = $state(false);
 
   async function verifyFile() {
     if (!files || files.length === 0) return;
-    
+
     status = 'Verifying file integrity...';
     const file = files[0];
     const buffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const calculatedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    isMatch = (calculatedHash === expectedHash);
-    
-    if (isMatch) {
-      matchStatus = 'Success: File matches the on-chain evidence hash!';
-    } else {
-      matchStatus = 'Warning: File does NOT match the on-chain evidence hash!';
-    }
-    status = 'Verification complete.';
+    const calculatedHash = Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    isMatch = expectedHash.length > 0 && calculatedHash === expectedHash;
+
+    matchStatus = isMatch
+      ? '✅ File matches the on-chain evidence hash.'
+      : expectedHash
+        ? '⚠️ File does NOT match the on-chain hash.'
+        : `📋 File hash: ${calculatedHash}`;
+
+    status = '';
   }
 
   async function handleRelease() {
     try {
       loading = true;
-      status = 'Waiting for Passkey signature to release funds...';
-      
-      // Sign with Face ID
+      status = 'Waiting for Face ID...';
+
       await passkeyAdapter.signWithPasskey({ action: 'release', escrowId });
-      
-      status = 'Signed! Calling Trustless Work contract...';
-      
-      // Release funds
+
+      status = 'Calling Trustless Work contract...';
       await tw.releaseEscrow(escrowId);
-      
-      status = 'Funds released successfully. Payment settled!';
+
+      released = true;
+      status = 'Payment settled. Funds released.';
     } catch (e) {
       status = 'Error: ' + e;
     } finally {
@@ -53,7 +54,7 @@
 </script>
 
 <svelte:head>
-  <title>Release | Emanet Infrastructure</title>
+  <title>Release | Emanet</title>
 </svelte:head>
 
 <div class="glass-card">
@@ -66,28 +67,49 @@
   </div>
 
   <div class="form-group">
-    <label for="expectedHash">Expected Evidence Hash (From Chain)</label>
-    <input type="text" id="expectedHash" bind:value={expectedHash} />
+    <label for="expectedHash">Expected Evidence Hash (from chain)</label>
+    <input type="text" id="expectedHash" bind:value={expectedHash} placeholder="Paste hash from Deliver step" />
   </div>
 
   <div class="form-group">
     <label for="file">Downloaded Deliverable</label>
-    <input type="file" id="file" bind:files={files} on:change={verifyFile} style="padding: 0.8rem;" />
+    <input type="file" id="file" bind:files onchange={verifyFile} style="padding: 0.8rem;" />
   </div>
 
   {#if matchStatus}
-    <div class="status-box" style="margin-top: 0; margin-bottom: 1.5rem; border-color: {isMatch ? '#45a29e' : '#f44336'}; background: {isMatch ? 'rgba(69, 162, 158, 0.1)' : 'rgba(244, 67, 54, 0.1)'};">
+    <div class="status-box" style="margin-top: 0; margin-bottom: 1.5rem; border-color: {isMatch ? '#45a29e' : '#f44336'}; background: {isMatch ? 'rgba(69,162,158,0.1)' : 'rgba(244,67,54,0.1)'};">
       {matchStatus}
     </div>
   {/if}
 
-  <button on:click={handleRelease} disabled={loading || !isMatch} style="background: {isMatch ? '' : 'linear-gradient(135deg, #555, #333)'}">
-    {loading ? 'Processing...' : 'Approve & Release Funds'}
-  </button>
+  {#if !released}
+    <button onclick={handleRelease} disabled={loading || (!isMatch && expectedHash.length > 0)}>
+      {loading ? 'Processing...' : '✅ Approve & Release Funds'}
+    </button>
+  {:else}
+    <div class="success-banner">
+      🎉 Payment settled on Stellar in seconds.
+    </div>
+  {/if}
 
-  {#if status && !status.includes('Verifying')}
+  {#if status}
     <div class="status-box">
       <strong>Status:</strong> {status}
     </div>
   {/if}
 </div>
+
+<style>
+  .success-banner {
+    width: 100%;
+    padding: 1.2rem;
+    background: linear-gradient(135deg, #45a29e, #66fcf1);
+    color: #0b0c10;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-align: center;
+    margin-top: 1rem;
+    box-sizing: border-box;
+  }
+</style>

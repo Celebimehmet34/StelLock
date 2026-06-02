@@ -20,7 +20,7 @@ export async function uploadEvidence(file: File): Promise<{ cid: string; hash: s
   const hash = crypto.createHash('sha256').update(buffer).digest('hex');
   
   // Upload to IPFS
-  const upload = await pinata.upload.file(file);
+  const upload = await (pinata.upload as any).file(file);
   
   return { 
     cid: upload.cid, 
