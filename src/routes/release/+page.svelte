@@ -113,7 +113,7 @@
   </div>
 
   {#if matchStatus}
-    <div class="status-box" style="margin-top:0;margin-bottom:1.5rem;border-color:{isMatch?'#45a29e':'#f44336'};background:{isMatch?'rgba(69,162,158,0.1)':'rgba(244,67,54,0.1)'};">
+    <div class="status-box match-box" class:match-ok={isMatch} class:match-fail={!isMatch && expectedHash.length > 0}>
       {matchStatus}
     </div>
   {/if}
@@ -149,6 +149,9 @@
   .secondary-btn { background:transparent; border:1px solid rgba(255,255,255,0.15); color:var(--text-main); width:100%; padding:0.8rem; border-radius:10px; font-size:0.9rem; cursor:pointer; margin-top:0; box-shadow:none; text-transform:none; letter-spacing:0; transition:border-color 0.2s; }
   .secondary-btn:hover { border-color:var(--secondary); color:var(--secondary); transform:none; }
   .terms-box { background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:1rem; margin-bottom:1rem; font-size:0.85rem; color:var(--text-light); white-space:pre-wrap; word-break:break-word; }
+  .match-box { margin-top: 0; margin-bottom: 1.5rem; }
+  .match-ok { border-color: #45a29e; background: rgba(69,162,158,0.1); }
+  .match-fail { border-color: #f44336; background: rgba(244,67,54,0.1); }
   .success-banner { width:100%; padding:1.2rem; background:linear-gradient(135deg,#45a29e,#66fcf1); color:#0b0c10; border-radius:12px; font-size:1.1rem; font-weight:700; text-align:center; box-sizing:border-box; }
   .explorer-link { display:block; margin-top:0.8rem; text-align:center; color:var(--secondary); font-size:0.9rem; font-weight:600; text-decoration:none; }
   .explorer-link:hover { text-decoration:underline; }
