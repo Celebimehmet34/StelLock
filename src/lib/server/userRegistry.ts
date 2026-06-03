@@ -1,12 +1,14 @@
 /**
  * Server-side user registry.
  *
- * Since keypairs are derived deterministically (username + password → keypair),
- * we store username → publicKey. On login we re-derive the keypair from the
- * submitted credentials and check the publicKey matches. This verifies the
- * password WITHOUT ever storing it.
+ * Keypairs are derived deterministically (username + password → keypair),
+ * so we store username → publicKey. On login we re-derive the keypair and
+ * check the publicKey matches — verifying the password without storing it.
  *
- * Storage: a JSON file at <project>/data/users.json (gitignored).
+ * Email verification: registration creates a PENDING user with a 6-digit code.
+ * The account is only usable after the code is confirmed (emailVerified=true).
+ *
+ * Storage: <project>/data/users.json (gitignored).
  */
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -14,20 +16,21 @@ import { fileURLToPath } from 'url';
 
 export interface UserRecord {
 	username: string;
+	email: string;
 	publicKey: string;
+	emailVerified: boolean;
+	pendingCode?: string; // present only while unverified
+	codeExpiresAt?: number;
 	createdAt: number;
 }
 
-// Resolve <project>/data relative to this module (src/lib/server/) — robust
-// against process.cwd() differences between dev, build, and sandboxed runs.
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(HERE, '../../../data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 async function readAll(): Promise<Record<string, UserRecord>> {
 	try {
-		const raw = await fs.readFile(USERS_FILE, 'utf-8');
-		return JSON.parse(raw);
+		return JSON.parse(await fs.readFile(USERS_FILE, 'utf-8'));
 	} catch {
 		return {};
 	}
@@ -42,43 +45,89 @@ function normalize(username: string): string {
 	return username.toLowerCase().trim();
 }
 
-/** Returns the record if username exists, else null. */
+function genCode(): string {
+	return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 export async function lookupUser(username: string): Promise<UserRecord | null> {
 	const users = await readAll();
 	return users[normalize(username)] ?? null;
 }
 
 /**
- * Register a new user.
- * Throws if username already taken (by a different publicKey).
- * Idempotent if the same username+publicKey re-registers.
+ * Start registration: create a pending (unverified) user with a verification code.
+ * Returns the code so the caller can email it (or show it in dev mode).
+ * Throws USERNAME_TAKEN / EMAIL_TAKEN if already used by a verified account.
  */
-export async function registerUser(username: string, publicKey: string): Promise<UserRecord> {
+export async function startRegistration(
+	username: string,
+	email: string,
+	publicKey: string
+): Promise<{ code: string }> {
 	const key = normalize(username);
 	const users = await readAll();
 
 	const existing = users[key];
-	if (existing) {
-		if (existing.publicKey === publicKey) return existing; // same creds, idempotent
+	if (existing && existing.emailVerified) {
+		if (existing.publicKey === publicKey) throw new Error('ALREADY_REGISTERED');
 		throw new Error('USERNAME_TAKEN');
 	}
 
-	const record: UserRecord = { username: key, publicKey, createdAt: Date.now() };
-	users[key] = record;
+	// email uniqueness among verified accounts
+	const emailNorm = email.toLowerCase().trim();
+	for (const u of Object.values(users)) {
+		if (u.emailVerified && u.email === emailNorm && u.username !== key) {
+			throw new Error('EMAIL_TAKEN');
+		}
+	}
+
+	const code = genCode();
+	users[key] = {
+		username: key,
+		email: emailNorm,
+		publicKey,
+		emailVerified: false,
+		pendingCode: code,
+		codeExpiresAt: Date.now() + 10 * 60 * 1000, // 10 min
+		createdAt: Date.now()
+	};
 	await writeAll(users);
-	return record;
+	return { code };
 }
 
 /**
- * Verify login: username must exist AND the derived publicKey must match.
- * Returns 'ok' | 'no_user' | 'wrong_password'.
+ * Confirm the verification code. Marks the account verified on success.
+ * Returns 'ok' | 'no_user' | 'expired' | 'wrong_code' | 'already_verified'.
+ */
+export async function confirmEmail(username: string, code: string): Promise<string> {
+	const key = normalize(username);
+	const users = await readAll();
+	const u = users[key];
+	if (!u) return 'no_user';
+	if (u.emailVerified) return 'already_verified';
+	if (!u.codeExpiresAt || Date.now() > u.codeExpiresAt) return 'expired';
+	if (u.pendingCode !== code.trim()) return 'wrong_code';
+
+	u.emailVerified = true;
+	delete u.pendingCode;
+	delete u.codeExpiresAt;
+	users[key] = u;
+	await writeAll(users);
+	return 'ok';
+}
+
+/**
+ * Verify login: username must exist, be email-verified, and the derived
+ * publicKey must match.
+ * Returns 'ok' | 'no_user' | 'wrong_password' | 'unverified'.
  */
 export async function verifyLogin(
 	username: string,
 	derivedPublicKey: string
-): Promise<'ok' | 'no_user' | 'wrong_password'> {
+): Promise<'ok' | 'no_user' | 'wrong_password' | 'unverified'> {
 	const record = await lookupUser(username);
 	if (!record) return 'no_user';
 	if (record.publicKey !== derivedPublicKey) return 'wrong_password';
+	if (!record.emailVerified) return 'unverified';
 	return 'ok';
 }

@@ -32,6 +32,7 @@
       if (!res.ok) {
         if (res.status === 404) status = 'No account with that username. Please register first.';
         else if (res.status === 401) status = 'Incorrect password.';
+        else if (res.status === 403) status = 'Email not verified. Please complete registration.';
         else status = 'Login failed: ' + (await res.text());
         loading = false;
         return;
