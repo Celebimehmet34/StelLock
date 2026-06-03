@@ -6,7 +6,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const formData = await request.formData();
 	const file = formData.get('file');
 
-	if (!file || !(file instanceof File)) {
+	if (!file || typeof file === 'string') {
 		throw error(400, 'No file provided');
 	}
 

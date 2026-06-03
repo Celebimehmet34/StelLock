@@ -80,7 +80,7 @@
 </script>
 
 <svelte:head>
-  <title>Emanet — Verifiable Delivery Infrastructure</title>
+  <title>Stellock — Verifiable Delivery Infrastructure</title>
 </svelte:head>
 
 {#if $userStore.isLoggedIn}

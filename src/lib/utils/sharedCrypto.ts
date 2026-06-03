@@ -1,5 +1,5 @@
 /**
- * Multi-recipient encryption for Emanet.
+ * Multi-recipient encryption for Stellock.
  *
  * Encrypts data so that BOTH the buyer and the seller can decrypt it, using
  * their Stellar Ed25519 keys (converted to X25519 via ed2curve + NaCl box).

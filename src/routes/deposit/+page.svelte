@@ -137,7 +137,7 @@
   }
 </script>
 
-<svelte:head><title>Deposit | Emanet</title></svelte:head>
+<svelte:head><title>Deposit | Stellock</title></svelte:head>
 
 <div class="glass-card">
   <StepProgress active={1} />

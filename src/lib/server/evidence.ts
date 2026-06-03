@@ -28,7 +28,7 @@ export async function uploadEvidence(file: File): Promise<{ cid: string; hash: s
 	let lastErr: unknown;
 	for (let attempt = 1; attempt <= 2; attempt++) {
 		try {
-			const upload = await (pinata.upload as any).file(file);
+			const upload = await (pinata.upload.public as any).file(file);
 			return { cid: upload.cid ?? upload.IpfsHash ?? '', hash };
 		} catch (e) {
 			lastErr = e;

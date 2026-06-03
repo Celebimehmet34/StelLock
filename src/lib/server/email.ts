@@ -27,11 +27,11 @@ export async function sendVerificationCode(email: string, code: string): Promise
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				from: env.EMAIL_FROM || 'Emanet <onboarding@resend.dev>',
+				from: env.EMAIL_FROM || 'Stellock <onboarding@resend.dev>',
 				to: [email],
-				subject: 'Your Emanet verification code',
+				subject: 'Your Stellock verification code',
 				html: `<div style="font-family:sans-serif">
-					<h2>Emanet — Verify your email</h2>
+					<h2>Stellock — Verify your email</h2>
 					<p>Your verification code is:</p>
 					<p style="font-size:28px;font-weight:bold;letter-spacing:4px">${code}</p>
 					<p style="color:#888">Expires in 10 minutes.</p>

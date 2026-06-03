@@ -23,7 +23,7 @@ export async function deriveKeypair(
 	const bits = await crypto.subtle.deriveBits(
 		{
 			name: 'PBKDF2',
-			salt: encoder.encode('emanet-v1:' + username.toLowerCase().trim()),
+			salt: encoder.encode('stellock-v1:' + username.toLowerCase().trim()),
 			iterations: 100000,
 			hash: 'SHA-256'
 		},

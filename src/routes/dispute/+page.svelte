@@ -57,7 +57,7 @@
   }
 </script>
 
-<svelte:head><title>Dispute | Emanet</title></svelte:head>
+<svelte:head><title>Dispute | Stellock</title></svelte:head>
 
 <div class="glass-card">
   <h1>Raise Dispute</h1>

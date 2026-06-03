@@ -4,7 +4,7 @@ import vkey from '$lib/server/zk/verification_key.json';
 import type { RequestHandler } from './$types';
 
 /**
- * Verifies a Groth16 zero-knowledge proof for the Emanet amount circuit.
+ * Verifies a Groth16 zero-knowledge proof for the Stellock amount circuit.
  *
  * The prover (buyer) proves, in the browser, that the secret escrow amount:
  *   - matches the public Poseidon commitment, and

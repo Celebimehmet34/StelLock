@@ -51,7 +51,7 @@
   }
 </script>
 
-<svelte:head><title>ZK Proof | Emanet</title></svelte:head>
+<svelte:head><title>ZK Proof | Stellock</title></svelte:head>
 
 <div class="glass-card wide">
   <div class="zk-badge">🔬 Zero-Knowledge · Circom + Groth16</div>

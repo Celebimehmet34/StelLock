@@ -71,7 +71,7 @@
   }
 </script>
 
-<svelte:head><title>Login | Emanet</title></svelte:head>
+<svelte:head><title>Login | Stellock</title></svelte:head>
 
 <div class="glass-card">
   <h1>Log In</h1>

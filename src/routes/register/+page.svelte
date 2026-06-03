@@ -106,7 +106,7 @@
   }
 </script>
 
-<svelte:head><title>Register | Emanet</title></svelte:head>
+<svelte:head><title>Register | Stellock</title></svelte:head>
 
 <div class="glass-card">
   {#if step === 'form'}

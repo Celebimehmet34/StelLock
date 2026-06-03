@@ -30,7 +30,7 @@ function createHistoryStore() {
 	const { subscribe, set, update } = writable<TxRecord[]>([]);
 
 	function storageKey(publicKey: string) {
-		return `emanet_history_${publicKey}`;
+		return `stellock_history_${publicKey}`;
 	}
 
 	return {
@@ -39,7 +39,8 @@ function createHistoryStore() {
 			if (typeof localStorage === 'undefined') return;
 			try {
 				const raw = localStorage.getItem(storageKey(publicKey));
-				set(raw ? JSON.parse(raw) : []);
+				const parsed = raw ? JSON.parse(raw) : [];
+				set(Array.isArray(parsed) ? parsed : []);
 			} catch {
 				set([]);
 			}
@@ -94,7 +95,7 @@ function createUserStore() {
 			// secretKey is already transmitted to the server for signing, so storing
 			// it here adds no new exposure — and it keeps the session usable on reload.
 			if (typeof sessionStorage !== 'undefined') {
-				sessionStorage.setItem('emanet_session', JSON.stringify(session));
+				sessionStorage.setItem('stellock_session', JSON.stringify(session));
 			}
 			historyStore.load(session.publicKey);
 		},
@@ -102,13 +103,13 @@ function createUserStore() {
 			set({ isLoggedIn: false, walletType: 'password', username: '', publicKey: '', secretKey: '' });
 			historyStore.clear();
 			if (typeof sessionStorage !== 'undefined') {
-				sessionStorage.removeItem('emanet_session');
+				sessionStorage.removeItem('stellock_session');
 			}
 		},
 		/** Restore the full session on page reload (within the same tab). */
 		restore() {
 			if (typeof sessionStorage === 'undefined') return;
-			const raw = sessionStorage.getItem('emanet_session');
+			const raw = sessionStorage.getItem('stellock_session');
 			if (!raw) return;
 			try {
 				const saved = JSON.parse(raw) as Omit<UserSession, 'isLoggedIn'>;

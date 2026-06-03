@@ -27,7 +27,7 @@
   }
 </script>
 
-<svelte:head><title>History | Emanet</title></svelte:head>
+<svelte:head><title>History | Stellock</title></svelte:head>
 
 <div class="history-page">
   <div class="history-header">

@@ -36,7 +36,7 @@ export const passkeyAdapter = {
    */
   async registerPasskey(userId: string): Promise<{ credentialId: string; contractId: string }> {
     if (!IS_DEMO) {
-      // const result = await kit.createWallet('Emanet', userId, { autoSubmit: true });
+      // const result = await kit.createWallet('Stellock', userId, { autoSubmit: true });
       // return { credentialId: result.credentialId, contractId: result.contractId };
     }
 

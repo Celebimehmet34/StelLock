@@ -1,5 +1,5 @@
 /**
- * Privacy utilities for Emanet.
+ * Privacy utilities for Stellock.
  *
  * commitTerms  — lightweight on-chain commitment (SHA-256 + salt)
  * encryptTerms — AES-256-GCM encryption keyed from buyer's Stellar secret
@@ -37,7 +37,7 @@ async function deriveAesKey(stellarSecretKey: string): Promise<CryptoKey> {
 		{
 			name: 'HKDF',
 			hash: 'SHA-256',
-			salt: encoder.encode('emanet-terms-v1'),
+			salt: encoder.encode('stellock-terms-v1'),
 			info: encoder.encode('commercial-terms')
 		},
 		keyMaterial,

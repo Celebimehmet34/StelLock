@@ -1,5 +1,5 @@
 /**
- * Browser-side Groth16 prover for the Emanet range circuit.
+ * Browser-side Groth16 prover for the Stellock range circuit.
  *
  * Generates the proof entirely in the browser — the secret amount never
  * leaves the device. Only the proof + public signals are sent to the server,

@@ -1,14 +1,14 @@
-# Emanet — B2B Escrow Infrastructure
+# Stellock — B2B Escrow Infrastructure
 
 *"Trustless Work escrow'unun üzerine verifiable delivery, ticari gizlilik ve kripto bilgisi gerektirmeyen erişim katmanı."*
 
-Emanet, serbest çalışanlar (freelancer) ve müşteriler arasındaki "teslim ettim para gelmedi" veya "parayı ödedim iş gelmedi" şeklindeki güven problemini çözmeyi hedefleyen; Stellar ağı ve Trustless Work altyapısı üzerine inşa edilmiş yeni nesil bir B2B ödeme (escrow) altyapısıdır. 
+Stellock, serbest çalışanlar (freelancer) ve müşteriler arasındaki "teslim ettim para gelmedi" veya "parayı ödedim iş gelmedi" şeklindeki güven problemini çözmeyi hedefleyen; Stellar ağı ve Trustless Work altyapısı üzerine inşa edilmiş yeni nesil bir B2B ödeme (escrow) altyapısıdır. 
 
 ---
 
 ## 🚀 Öne Çıkan Özellikler
 
-Emanet, basit bir akıllı sözleşme uygulamasından öte, kullanıcı deneyimine odaklanan 3 temel katman ekler:
+Stellock, basit bir akıllı sözleşme uygulamasından öte, kullanıcı deneyimine odaklanan 3 temel katman ekler:
 
 1. **Teslimat Kanıtı (Verifiable Delivery):** "İşi teslim ettim" demek yerine, teslim edilen dosyanın kendisi kriptografik olarak kanıtlanır (IPFS + SHA-256).
 2. **Ticari Gizlilik (Privacy Layer - Commitment Scheme):** Taraflar arasındaki ticari koşullar düz metin (plaintext) olarak zincire yazılmaz. Koşullar tuzlanarak (salt) hash'lenir.
@@ -21,7 +21,7 @@ Emanet, basit bir akıllı sözleşme uygulamasından öte, kullanıcı deneyimi
 Proje modern, hızlı ve güvenli bir teknoloji yığını (stack) kullanılarak geliştirilmiştir:
 
 *   **SvelteKit:** Sistemin B2B arayüzünü (Reference App) simüle etmek için kullanılan son derece hızlı frontend framework'ü.
-*   **Stellar Network & Trustless Work:** Temel escrow (emanet) mantığı, paranın kilitlenmesi ve serbest bırakılması süreçleri için.
+*   **Stellar Network & Trustless Work:** Temel escrow (stellock) mantığı, paranın kilitlenmesi ve serbest bırakılması süreçleri için.
 *   **smart-account-kit:** Cüzdan altyapısını soyutlayarak (Account Abstraction) biyometrik imzalama (Passkey) süreçlerini yönetmek için.
 *   **Pinata (IPFS):** Merkeziyetsiz, sansürlenemez ve güvenli dosya depolama altyapısı.
 *   **Web Crypto API:** İstemci tarafında hızlı ve güvenli SHA-256 özetleme (hashing) işlemleri için.

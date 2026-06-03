@@ -32,7 +32,7 @@
   });
 </script>
 
-<svelte:head><title>Escrow {$page.params.id} | Emanet</title></svelte:head>
+<svelte:head><title>Escrow {$page.params.id} | Stellock</title></svelte:head>
 
 <div class="glass-card wide">
   {#if error}

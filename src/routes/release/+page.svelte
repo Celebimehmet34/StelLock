@@ -110,7 +110,7 @@
   }
 </script>
 
-<svelte:head><title>Release | Emanet</title></svelte:head>
+<svelte:head><title>Release | Stellock</title></svelte:head>
 
 <div class="glass-card">
   <StepProgress active={3} />
