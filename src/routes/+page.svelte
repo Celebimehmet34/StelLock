@@ -75,7 +75,7 @@
     { label: 'Verifiable Delivery', desc: 'IPFS + SHA-256 hash on-chain' },
     { label: 'Privacy Layer', desc: 'AES-256-GCM + Groth16 zk-SNARK' },
     { label: 'No Seed Phrases', desc: 'Username + password wallet' },
-    { label: 'Built on Trustless Work', desc: 'Battle-tested Soroban escrow' }
+    { label: 'Infrastructure for Trustless Work', desc: 'Battle-tested Soroban escrow' }
   ];
 </script>
 
@@ -169,7 +169,7 @@
 {:else}
   <div class="hero">
     <div class="hero-content">
-      <div class="hero-badge">Built on Trustless Work · Stellar · Soroban</div>
+      <div class="hero-badge">Infrastructure for Trustless Work · Stellar · Soroban</div>
       <h1 class="hero-title">
         Proof of delivery.<br/>
         <span class="accent">Not promise of delivery.</span>
