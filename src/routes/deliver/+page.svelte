@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
   import { tw, type EscrowInfo } from '$lib/stellar/tw-client';
+  import { sealForRecipients, openText } from '$lib/utils/sharedCrypto';
   import { escrowStore, userStore, historyStore } from '$lib/store';
   import StepProgress from '$lib/components/StepProgress.svelte';
   import { get } from 'svelte/store';
@@ -18,11 +19,31 @@
   let explorerUrl = $state('');
   let loading = $state(false);
   let done = $state(false);
+  let terms = $state('');
+  let showTerms = $state(false);
 
   onMount(() => {
     if (!$userStore.isLoggedIn) goto('/login');
     if (escrowId) lookupEscrow();
   });
+
+  async function viewTerms() {
+    if (!$userStore.secretKey) { terms = 'Password wallet required to read encrypted terms.'; showTerms = true; return; }
+    const cid = escrowInfo?.encryptedTermsCid;
+    if (!cid) { terms = '(No terms attached to this escrow)'; showTerms = true; return; }
+    try {
+      status = 'Fetching terms...';
+      const res = await fetch(`https://gateway.pinata.cloud/ipfs/${cid}`);
+      const sealed = await res.json();
+      terms = openText(sealed, $userStore.publicKey, $userStore.secretKey);
+      showTerms = true;
+      status = '';
+    } catch (e) {
+      terms = 'Could not decrypt terms: ' + (e instanceof Error ? e.message : e);
+      showTerms = true;
+      status = '';
+    }
+  }
 
   async function lookupEscrow() {
     lookupError = '';
@@ -41,28 +62,32 @@
 
   async function handleDeliver() {
     if (!files || files.length === 0) { status = 'Please select a file.'; return; }
-    if (!$userStore.secretKey) { goto('/login'); return; }
+    if (!$userStore.isLoggedIn) { goto('/login'); return; }
+    if (!$userStore.secretKey) { status = '🦊 Freighter signs but cannot decrypt client-side — use a password wallet for the encrypted escrow flow.'; return; }
 
     try {
       loading = true;
-      status = 'Uploading to IPFS...';
 
       const file = files[0];
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const buffer = await file.arrayBuffer();
 
-      if (!res.ok) {
-        status = 'Computing hash locally...';
-        const buffer = await file.arrayBuffer();
-        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-        evidenceHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
-        ipfsCid = '';
-      } else {
-        const data = await res.json();
-        evidenceHash = data.hash;
-        ipfsCid = data.cid;
-      }
+      // On-chain evidence hash = SHA-256 of the ORIGINAL (plaintext) file
+      status = 'Hashing deliverable...';
+      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      evidenceHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+
+      // #3 — encrypt the deliverable for buyer + seller before storing on IPFS
+      status = 'Encrypting deliverable (buyer + seller)...';
+      const recipients = [$userStore.publicKey];
+      if (escrowInfo?.buyerPublicKey) recipients.push(escrowInfo.buyerPublicKey);
+      const sealed = sealForRecipients(new Uint8Array(buffer), recipients);
+      const sealedBlob = new Blob([JSON.stringify(sealed)], { type: 'application/json' });
+
+      status = 'Uploading encrypted deliverable to IPFS...';
+      const formData = new FormData();
+      formData.append('file', sealedBlob, 'deliverable.enc');
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      ipfsCid = res.ok ? (await res.json()).cid : '';
 
       status = 'Uploaded. Waiting for Face ID...';
       await passkeyAdapter.signWithPasskey({ escrowId, evidenceHash });
@@ -109,6 +134,11 @@
       <div class="ctx-row"><span class="ctx-label">Amount</span><span class="ctx-val">{escrowInfo.amount} USDC</span></div>
       <div class="ctx-row"><span class="ctx-label">Status</span><span class="ctx-val status-{escrowInfo.status}">{escrowInfo.status}</span></div>
     </div>
+
+    <button onclick={viewTerms} class="terms-btn">📄 View Agreed Terms</button>
+    {#if showTerms}
+      <div class="terms-box">{terms}</div>
+    {/if}
   {/if}
 
   {#if lookupError}
@@ -156,4 +186,7 @@
   .ctx-val { color:var(--text-light); font-family:monospace; }
   .status-funded { color:#66fcf1; } .status-delivered { color:#f0a500; } .status-released { color:#4caf50; }
   .match-fail { border-color:#f44336; background:rgba(244,67,54,0.1); }
+  .terms-btn { background:transparent; border:1px solid rgba(255,255,255,0.15); color:var(--text-main); width:100%; padding:0.7rem; border-radius:10px; font-size:0.85rem; cursor:pointer; margin:0 0 1rem; box-shadow:none; text-transform:none; letter-spacing:0; }
+  .terms-btn:hover { border-color:var(--secondary); color:var(--secondary); transform:none; }
+  .terms-box { background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:1rem; margin-bottom:1.5rem; font-size:0.85rem; color:var(--text-light); white-space:pre-wrap; word-break:break-word; }
 </style>

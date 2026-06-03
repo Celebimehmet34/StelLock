@@ -1,7 +1,7 @@
 <script lang="ts">
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
   import { tw, type EscrowInfo } from '$lib/stellar/tw-client';
-  import { decryptTerms } from '$lib/utils/privacy';
+  import { openText } from '$lib/utils/sharedCrypto';
   import { escrowStore, userStore, historyStore } from '$lib/store';
   import StepProgress from '$lib/components/StepProgress.svelte';
   import { get } from 'svelte/store';
@@ -63,7 +63,8 @@
   }
 
   async function handleRelease() {
-    if (!$userStore.secretKey) { goto('/login'); return; }
+    if (!$userStore.isLoggedIn) { goto('/login'); return; }
+    if (!$userStore.secretKey) { status = '🦊 Freighter signs but cannot decrypt client-side — use a password wallet for the encrypted escrow flow.'; return; }
     try {
       loading = true;
       status = 'Waiting for Face ID...';
@@ -97,12 +98,12 @@
     try {
       status = 'Fetching encrypted terms from IPFS...';
       const res = await fetch(`https://gateway.pinata.cloud/ipfs/${cid}`);
-      const encrypted = await res.json();
-      decryptedTerms = await decryptTerms(encrypted, $userStore.secretKey);
+      const sealed = await res.json();
+      decryptedTerms = openText(sealed, $userStore.publicKey, $userStore.secretKey);
       showTerms = true;
       status = '';
     } catch (e) {
-      decryptedTerms = 'Failed to decrypt (only the buyer who created the escrow can): ' + e;
+      decryptedTerms = 'Could not decrypt: ' + (e instanceof Error ? e.message : e);
       showTerms = true;
       status = '';
     }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { encryptTerms, sha256hex } from '$lib/utils/privacy';
+  import { sha256hex } from '$lib/utils/privacy';
+  import { sealText } from '$lib/utils/sharedCrypto';
   import { proveAmountInRange } from '$lib/zk/prover';
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
   import { tw } from '$lib/stellar/tw-client';
@@ -46,7 +47,8 @@
   });
 
   async function handleDeposit() {
-    if (!$userStore.secretKey) { goto('/login'); return; }
+    if (!$userStore.isLoggedIn) { goto('/login'); return; }
+    if (!$userStore.secretKey) { status = '🦊 Freighter signs but cannot decrypt client-side — use a password wallet for the encrypted escrow flow.'; return; }
 
     // #4 — range must be wide enough that it doesn't trivially reveal the amount
     const lo = parseFloat(minAmount), hi = parseFloat(maxAmount), amt = parseFloat(amount);
@@ -79,10 +81,16 @@
         throw new Error('On-chain ZK verification failed: ' + (await zkRes.text()));
       }
 
-      // ── 2. Encrypt terms ──
-      status = 'Encrypting commercial terms...';
-      const encrypted = await encryptTerms(terms, $userStore.secretKey);
-      const encryptedJson = JSON.stringify(encrypted);
+      // ── 2. Encrypt terms for BOTH buyer and seller ──
+      status = 'Encrypting commercial terms (buyer + seller)...';
+      const recipients = [$userStore.publicKey];
+      if (counterparty && counterparty.startsWith('G') && counterparty.length === 56) {
+        recipients.push(counterparty);
+      } else {
+        warning = '⚠️ No valid seller key — terms encrypted for you only. Seller won\'t be able to read them.';
+      }
+      const sealed = sealText(terms, recipients);
+      const encryptedJson = JSON.stringify(sealed);
 
       // ── 3. Upload encrypted terms to IPFS ──
       status = 'Uploading encrypted terms to IPFS...';
