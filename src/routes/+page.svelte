@@ -1,14 +1,47 @@
 <script lang="ts">
   import { userStore, historyStore } from '$lib/store';
   import { derived } from 'svelte/store';
+  import { onMount } from 'svelte';
 
   let copied = $state(false);
+  let xlmBalance = $state<string | null>(null);
+  let funded = $state(true);
+  let price = $state<{ xlm_usd: number | null; xlm_eur: number | null; xlm_try: number | null } | null>(null);
 
   async function copyKey() {
     await navigator.clipboard.writeText($userStore.publicKey);
     copied = true;
     setTimeout(() => (copied = false), 2000);
   }
+
+  async function loadBalance() {
+    if (!$userStore.publicKey) return;
+    try {
+      const res = await fetch('/api/balance/' + $userStore.publicKey);
+      if (res.ok) {
+        const d = await res.json();
+        xlmBalance = parseFloat(d.xlm).toFixed(4);
+        funded = d.funded;
+      }
+    } catch {}
+  }
+
+  async function loadPrice() {
+    try { const r = await fetch('/api/price'); if (r.ok) price = await r.json(); } catch {}
+  }
+
+  onMount(() => {
+    if ($userStore.isLoggedIn) {
+      historyStore.load($userStore.publicKey);
+      loadBalance();
+      loadPrice();
+    }
+  });
+
+  // USD value of XLM balance
+  const balanceUsd = $derived(
+    xlmBalance && price?.xlm_usd ? (parseFloat(xlmBalance) * price.xlm_usd).toFixed(2) : null
+  );
 
   // Derive stats from history
   const stats = derived(historyStore, ($h) => {
@@ -60,6 +93,28 @@
       <button class="key-chip" onclick={copyKey} title="Copy your public key">
         {#if copied}✅ Copied{:else}📋 {$userStore.publicKey.slice(0,6)}…{$userStore.publicKey.slice(-6)}{/if}
       </button>
+    </div>
+
+    <!-- Balance + Exchange rate -->
+    <div class="balance-card">
+      <div class="bal-main">
+        <div class="bal-label">Wallet Balance</div>
+        <div class="bal-amount">
+          {#if xlmBalance === null}…{:else}{xlmBalance} <span class="bal-unit">XLM</span>{/if}
+        </div>
+        {#if balanceUsd}<div class="bal-usd">≈ ${balanceUsd} USD</div>{/if}
+        {#if xlmBalance !== null && !funded}<div class="bal-warn">Not funded yet</div>{/if}
+      </div>
+      <div class="bal-rates">
+        <div class="rate-title">📡 Reflector Oracle</div>
+        {#if price?.xlm_usd}
+          <div class="rate-row"><span>XLM/USD</span><strong>${price.xlm_usd.toFixed(4)}</strong></div>
+          <div class="rate-row"><span>XLM/EUR</span><strong>€{price.xlm_eur?.toFixed(4)}</strong></div>
+          <div class="rate-row"><span>XLM/TRY</span><strong>₺{price.xlm_try?.toFixed(2)}</strong></div>
+        {:else}
+          <div class="rate-row"><span>Loading rates…</span></div>
+        {/if}
+      </div>
     </div>
 
     <!-- Stats -->
@@ -150,6 +205,17 @@
   .key-chip:hover { background:rgba(102,252,241,0.16); transform:none; }
   .dash-hint { color:var(--text-main); font-size:0.85rem; margin:1.2rem 0 1.5rem; }
 
+  .balance-card { display:grid; grid-template-columns:1.4fr 1fr; gap:1rem; margin:1.5rem 0; }
+  .bal-main { background:linear-gradient(135deg,rgba(69,162,158,0.15),rgba(102,252,241,0.08)); border:1px solid rgba(102,252,241,0.25); border-radius:16px; padding:1.4rem; }
+  .bal-label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--primary); font-weight:700; }
+  .bal-amount { font-size:2.2rem; font-weight:800; color:var(--text-light); margin-top:0.3rem; }
+  .bal-unit { font-size:1rem; color:var(--secondary); font-weight:600; }
+  .bal-usd { font-size:0.9rem; color:var(--text-main); margin-top:0.2rem; }
+  .bal-warn { font-size:0.78rem; color:#f0a500; margin-top:0.4rem; }
+  .bal-rates { background:var(--panel-bg); border:1px solid var(--glass-border); border-radius:16px; padding:1.2rem; }
+  .rate-title { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--primary); font-weight:700; margin-bottom:0.6rem; }
+  .rate-row { display:flex; justify-content:space-between; font-size:0.82rem; padding:0.25rem 0; color:var(--text-main); }
+  .rate-row strong { color:var(--secondary); }
   .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:0.8rem; margin:1.5rem 0; }
   .stat-card { background:var(--panel-bg); border:1px solid var(--glass-border); border-radius:12px; padding:1rem; text-align:center; }
   .stat-num { font-size:1.8rem; font-weight:800; color:var(--secondary); }
@@ -189,6 +255,7 @@
   .feature-desc { font-size:0.75rem; color:var(--primary); }
 
   @media (max-width:700px) {
+    .balance-card { grid-template-columns:1fr; }
     .stats-row { grid-template-columns:repeat(2,1fr); }
     .action-grid { grid-template-columns:1fr; }
     .features-bar { grid-template-columns:repeat(2,1fr); }
