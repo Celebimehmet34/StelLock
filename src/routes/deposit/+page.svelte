@@ -25,6 +25,7 @@
   let encryptedCid = $state('');
   let zkCommitment = $state('');
   let zkVerified = $state(false);
+  let zkExplorerUrl = $state('');
   let loading = $state(false);
   let done = $state(false);
   let copied = $state(false);
@@ -48,19 +49,23 @@
       loading = true;
 
       // ── 1. ZK proof: amount is in [min, max] without revealing it ──
-      status = '🔬 Generating ZK proof (amount stays private)...';
+      status = '🔬 Generating BLS12-381 ZK proof (amount stays private)...';
       const zk = await proveAmountInRange(amount, minAmount, maxAmount);
       zkCommitment = zk.commitment;
 
-      // Verify on server
-      const zkRes = await fetch('/api/zk/verify', {
+      // Verify ON-CHAIN via the deployed Soroban contract (BLS12-381 pairing)
+      status = '⛓️ Verifying proof ON-CHAIN (Soroban BLS12-381)...';
+      const zkRes = await fetch('/api/zk/verify-onchain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proof: zk.proof, publicSignals: zk.publicSignals })
       });
       if (zkRes.ok) {
         const v = await zkRes.json();
-        zkVerified = v.valid;
+        zkVerified = v.verified;
+        zkExplorerUrl = v.explorerUrl;
+      } else {
+        throw new Error('On-chain ZK verification failed: ' + (await zkRes.text()));
       }
 
       // ── 2. Encrypt terms ──
@@ -169,7 +174,10 @@
     <div class="success-banner">✅ Funds locked on Stellar testnet.</div>
 
     {#if zkVerified}
-      <div class="zk-badge">🔬 ZK Proof verified — amount is in range, never disclosed</div>
+      <div class="zk-badge">⛓️ ZK Proof verified ON-CHAIN (Soroban BLS12-381) — amount never disclosed</div>
+      {#if zkExplorerUrl}
+        <a href={zkExplorerUrl} target="_blank" class="explorer-link">🔬 View verifier contract →</a>
+      {/if}
     {/if}
 
     {#if explorerUrl}

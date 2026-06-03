@@ -33,3 +33,8 @@ vite.config.ts.timestamp-*
 /zk/build/proof.json
 /zk/build/public.json
 /zk/bin
+zk/build_bls/pot_*.ptau
+/zk/build_bls/*.ptau
+/zk/build_bls/*.wtns
+/zk/build_bls/*_0000.zkey
+/zk-verifier/target
