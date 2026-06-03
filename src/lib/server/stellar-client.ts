@@ -48,15 +48,26 @@ export async function fundEscrowTx(
 	buyerSecretKey?: string,
 	sellerPublicKey?: string,
 	encryptedTermsCid?: string,
-	zkCommitment?: string
+	zkCommitment?: string,
+	zkRange?: { min: number; max: number }
 ): Promise<{ txHash: string; explorerUrl: string }> {
 	const buyer = userKeypair(buyerSecretKey);
+
+	// #5 — bind the ZK range to the locked amount: the funded amount MUST fall
+	// inside the range that was proven on-chain. Otherwise the proof is unrelated.
+	if (zkRange) {
+		const a = parseFloat(amount);
+		if (a < zkRange.min || a > zkRange.max) {
+			throw new Error('Locked amount is outside the ZK-proven range');
+		}
+	}
 
 	await ensureFunded(buyer.publicKey());
 	await ensureFunded(ESCROW_PUBLIC);
 
 	const account = await server.loadAccount(buyer.publicKey());
-	const xlm = Math.min(parseFloat(amount) * 0.01, 10).toFixed(7);
+	// Simulate USDC 1:1 with testnet XLM (capped to preserve test balances).
+	const xlm = Math.min(parseFloat(amount), 1000).toFixed(7);
 	// Include ZK commitment prefix in memo if available (on-chain ZK binding)
 	const zkPrefix = encryptedTermsCid ? encryptedTermsCid.slice(0, 6) : termsHash.slice(0, 8);
 	const memo = `fund:${escrowId.slice(-6)}:${zkPrefix}`.slice(0, 28);

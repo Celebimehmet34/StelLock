@@ -48,6 +48,11 @@
   async function handleDeposit() {
     if (!$userStore.secretKey) { goto('/login'); return; }
 
+    // #4 — range must be wide enough that it doesn't trivially reveal the amount
+    const lo = parseFloat(minAmount), hi = parseFloat(maxAmount), amt = parseFloat(amount);
+    if (!(amt >= lo && amt <= hi)) { status = 'Amount must be within [min, max].'; return; }
+    if (hi - lo < amt * 0.5) { status = 'Privacy: range must span at least 50% of the amount (wider = more private).'; return; }
+
     try {
       loading = true;
 
@@ -99,7 +104,7 @@
       // ── 5. Fund escrow on Stellar ──
       status = 'Submitting to Stellar testnet...';
       const newEscrowId = 'esc_' + Math.random().toString(36).slice(2, 9);
-      const result = await tw.fundEscrow($userStore.secretKey, newEscrowId, termsHash, amount, counterparty, encryptedCid, zkCommitment);
+      const result = await tw.fundEscrow($userStore.secretKey, newEscrowId, termsHash, amount, counterparty, encryptedCid, zkCommitment, { min: lo, max: hi });
 
       escrowId = newEscrowId;
       explorerUrl = result.explorerUrl;
