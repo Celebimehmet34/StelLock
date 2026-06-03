@@ -1,9 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { deriveKeypair } from '$lib/utils/keypair';
-  import { isFreighterAvailable, connectFreighter } from '$lib/stellar/wallet';
+  import { connectFreighter } from '$lib/stellar/wallet';
   import { userStore } from '$lib/store';
-  import { onMount } from 'svelte';
 
   let step = $state<'form' | 'verify'>('form');
   let username = $state('');
@@ -12,16 +11,11 @@
   let confirm = $state('');
   let status = $state('');
   let loading = $state(false);
-  let freighterAvailable = $state(false);
 
   // verification
   let code = $state('');
   let devCode = $state('');
   let savedKeys = $state<{ publicKey: string; secretKey: string } | null>(null);
-
-  onMount(async () => {
-    freighterAvailable = await isFreighterAvailable();
-  });
 
   async function handleRegister() {
     if (!username.trim()) { status = 'Enter a username.'; return; }
@@ -102,7 +96,10 @@
       });
       goto('/');
     } catch (e) {
-      status = 'Freighter error: ' + (e instanceof Error ? e.message : e);
+      const msg = e instanceof Error ? e.message : String(e);
+      status = msg === 'NOT_INSTALLED'
+        ? '🦊 Freighter not detected. Install it at freighter.app, then refresh.'
+        : 'Freighter error: ' + msg;
     } finally {
       loading = false;
     }
@@ -116,13 +113,11 @@
     <h1>Create Account</h1>
     <p class="subtitle">Email-verified, password-based Stellar wallet</p>
 
-    {#if freighterAvailable}
-      <button class="freighter-btn" onclick={handleFreighterRegister} disabled={loading}>
-        <span class="freighter-icon">🦊</span> Connect Freighter Wallet
-      </button>
-      <p class="freighter-note">Non-custodial — no email needed.</p>
-      <div class="divider"><span>or create a password wallet</span></div>
-    {/if}
+    <button class="freighter-btn" onclick={handleFreighterRegister} disabled={loading}>
+      <span class="freighter-icon">🦊</span> Connect Freighter Wallet
+    </button>
+    <p class="freighter-note">Non-custodial — no email needed.</p>
+    <div class="divider"><span>or create a password wallet</span></div>
 
     <div class="form-group">
       <label for="username">Username</label>

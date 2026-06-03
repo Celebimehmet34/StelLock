@@ -35,6 +35,18 @@ export async function isFreighterAvailable(): Promise<boolean> {
 }
 
 export async function connectFreighter(): Promise<WalletSession> {
+	// Check the extension is present first — gives a clear message if not.
+	let available = false;
+	try {
+		const c = await isConnected();
+		available = c?.isConnected ?? false;
+	} catch {
+		available = false;
+	}
+	if (!available) {
+		throw new Error('NOT_INSTALLED');
+	}
+
 	const access = await requestAccess();
 	if (access.error) throw new Error('Freighter access denied: ' + access.error);
 

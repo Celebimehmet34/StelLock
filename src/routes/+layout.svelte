@@ -27,7 +27,7 @@
 <div class="app-container">
   <nav class="glass-nav">
     <a href="/" class="logo-link">
-      <div class="logo">EMANET <span class="badge">B2B Infrastructure</span></div>
+      <div class="logo">EMANET <span class="badge">on Stellar</span></div>
     </a>
 
     <div class="nav-center">
