@@ -3,6 +3,7 @@
   import { tw, type EscrowInfo } from '$lib/stellar/tw-client';
   import { decryptTerms } from '$lib/utils/privacy';
   import { escrowStore, userStore, historyStore } from '$lib/store';
+  import StepProgress from '$lib/components/StepProgress.svelte';
   import { get } from 'svelte/store';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
@@ -111,6 +112,7 @@
 <svelte:head><title>Release | Emanet</title></svelte:head>
 
 <div class="glass-card">
+  <StepProgress active={3} />
   <h1>Release</h1>
   <p class="subtitle">Verify work and authorize payment</p>
 

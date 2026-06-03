@@ -3,6 +3,7 @@
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
   import { tw, type EscrowInfo } from '$lib/stellar/tw-client';
   import { escrowStore, userStore, historyStore } from '$lib/store';
+  import StepProgress from '$lib/components/StepProgress.svelte';
   import { get } from 'svelte/store';
   import { onMount } from 'svelte';
 
@@ -93,6 +94,7 @@
 <svelte:head><title>Deliver | Emanet</title></svelte:head>
 
 <div class="glass-card">
+  <StepProgress active={2} />
   <h1>Deliver</h1>
   <p class="subtitle">Submit cryptographic proof of delivery</p>
 

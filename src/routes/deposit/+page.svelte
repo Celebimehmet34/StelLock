@@ -5,6 +5,7 @@
   import { passkeyAdapter } from '$lib/stellar/passkey-adapter';
   import { tw } from '$lib/stellar/tw-client';
   import { escrowStore, userStore, historyStore } from '$lib/store';
+  import StepProgress from '$lib/components/StepProgress.svelte';
   import { onMount } from 'svelte';
 
   let amount = $state('100');
@@ -26,6 +27,8 @@
   let zkCommitment = $state('');
   let zkVerified = $state(false);
   let zkExplorerUrl = $state('');
+  // ZK sequence stages: 0=idle 1=proving 2=verifying 3=done
+  let zkStage = $state(0);
   let loading = $state(false);
   let done = $state(false);
   let copied = $state(false);
@@ -49,12 +52,13 @@
       loading = true;
 
       // ── 1. ZK proof: amount is in [min, max] without revealing it ──
-      status = '🔬 Generating BLS12-381 ZK proof (amount stays private)...';
+      zkStage = 1; // proving in browser
+      status = '';
       const zk = await proveAmountInRange(amount, minAmount, maxAmount);
       zkCommitment = zk.commitment;
 
       // Verify ON-CHAIN via the deployed Soroban contract (BLS12-381 pairing)
-      status = '⛓️ Verifying proof ON-CHAIN (Soroban BLS12-381)...';
+      zkStage = 2; // verifying on-chain
       const zkRes = await fetch('/api/zk/verify-onchain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,7 +68,9 @@
         const v = await zkRes.json();
         zkVerified = v.verified;
         zkExplorerUrl = v.explorerUrl;
+        zkStage = 3; // verified
       } else {
+        zkStage = 0;
         throw new Error('On-chain ZK verification failed: ' + (await zkRes.text()));
       }
 
@@ -121,6 +127,7 @@
 <svelte:head><title>Deposit | Emanet</title></svelte:head>
 
 <div class="glass-card">
+  <StepProgress active={1} />
   <h1>Deposit</h1>
   <p class="subtitle">Lock funds · ZK proof + AES encryption + Stellar tx</p>
 
@@ -166,9 +173,34 @@
     <textarea id="terms" rows="3" bind:value={terms} disabled={done}></textarea>
   </div>
 
+  <!-- ZK proof sequence — the wow moment -->
+  {#if zkStage > 0 && !done}
+    <div class="zk-sequence">
+      <div class="zk-step" class:active={zkStage === 1} class:done={zkStage > 1}>
+        <span class="zk-icon">{zkStage > 1 ? '✓' : '🔬'}</span>
+        <div class="zk-text">
+          <strong>Proving in your browser</strong>
+          <span>BLS12-381 Groth16 — your amount never leaves this device</span>
+        </div>
+        {#if zkStage === 1}<span class="spinner"></span>{/if}
+      </div>
+      <div class="zk-step" class:active={zkStage === 2} class:done={zkStage > 2}>
+        <span class="zk-icon">{zkStage > 2 ? '✓' : '⛓️'}</span>
+        <div class="zk-text">
+          <strong>Verifying on Soroban</strong>
+          <span>On-chain pairing check — contract confirms without seeing the amount</span>
+        </div>
+        {#if zkStage === 2}<span class="spinner"></span>{/if}
+      </div>
+      {#if zkStage === 3}
+        <div class="zk-success">🎉 Zero-knowledge verified on-chain</div>
+      {/if}
+    </div>
+  {/if}
+
   {#if !done}
     <button onclick={handleDeposit} disabled={loading}>
-      {loading ? status : '🔒 Lock with ZK Proof + Face ID'}
+      {loading ? (status || 'Processing...') : '🔒 Lock with ZK Proof + Face ID'}
     </button>
   {:else}
     <div class="success-banner">✅ Funds locked on Stellar testnet.</div>
@@ -247,4 +279,19 @@
   .oracle-price { color:var(--text-light); }
   .oracle-price strong { color:var(--secondary); }
   .oracle-sep { color:var(--glass-border); }
+
+  /* ZK sequence */
+  .zk-sequence { margin-bottom:1.2rem; display:flex; flex-direction:column; gap:0.6rem; }
+  .zk-step { display:flex; align-items:center; gap:0.8rem; padding:0.8rem 1rem; border-radius:12px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); opacity:0.45; transition:all 0.4s; }
+  .zk-step.active { opacity:1; border-color:var(--secondary); background:rgba(102,252,241,0.06); box-shadow:0 0 0 3px rgba(102,252,241,0.08); }
+  .zk-step.done { opacity:1; border-color:rgba(69,162,158,0.4); }
+  .zk-icon { font-size:1.3rem; width:28px; text-align:center; }
+  .zk-step.done .zk-icon { color:#4caf50; font-weight:800; }
+  .zk-text { flex:1; display:flex; flex-direction:column; }
+  .zk-text strong { color:var(--text-light); font-size:0.9rem; }
+  .zk-text span { color:var(--text-main); font-size:0.74rem; }
+  .spinner { width:16px; height:16px; border:2px solid rgba(102,252,241,0.2); border-top-color:var(--secondary); border-radius:50%; animation:spin 0.7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .zk-success { text-align:center; padding:0.7rem; background:linear-gradient(135deg,rgba(76,175,80,0.15),rgba(102,252,241,0.1)); border:1px solid rgba(76,175,80,0.3); border-radius:12px; color:var(--secondary); font-weight:700; font-size:0.9rem; animation:fadeIn 0.4s; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
 </style>
