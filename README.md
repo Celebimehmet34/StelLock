@@ -1,111 +1,111 @@
 # Stellock — B2B Escrow Infrastructure
 
-*"Trustless Work escrow'unun üzerine verifiable delivery, ticari gizlilik ve kripto bilgisi gerektirmeyen erişim katmanı."*
+*"A verifiable delivery, commercial privacy, and crypto-agnostic access layer on top of Trustless Work escrow."*
 
-Stellock, serbest çalışanlar (freelancer) ve müşteriler arasındaki "teslim ettim para gelmedi" veya "parayı ödedim iş gelmedi" şeklindeki güven problemini çözmeyi hedefleyen; Stellar ağı ve Trustless Work altyapısı üzerine inşa edilmiş yeni nesil bir B2B ödeme (escrow) altyapısıdır. 
-
----
-
-## 🚀 Öne Çıkan Özellikler
-
-Stellock, basit bir akıllı sözleşme uygulamasından öte, kullanıcı deneyimine odaklanan 3 temel katman ekler:
-
-1. **Teslimat Kanıtı (Verifiable Delivery):** "İşi teslim ettim" demek yerine, teslim edilen dosyanın kendisi kriptografik olarak kanıtlanır (IPFS + SHA-256).
-2. **Ticari Gizlilik (Privacy Layer - Commitment Scheme):** Taraflar arasındaki ticari koşullar düz metin (plaintext) olarak zincire yazılmaz. Koşullar tuzlanarak (salt) hash'lenir.
-3. **Kripto Bilgisi Gerektirmeyen Erişim (Passkey):** Kullanıcıların *seed phrase* ezberlemesine veya eklenti cüzdan kurmasına gerek yoktur. İşlemler Face ID / Touch ID biyometrik verileri ile onaylanır.
+Stellock is a next-generation B2B payment (escrow) infrastructure built on the Stellar network and Trustless Work framework, aiming to solve the trust issues between freelancers and clients, such as "I delivered the work but didn't get paid" or "I paid but didn't receive the work".
 
 ---
 
-## 🛠 Kullanılan Teknolojiler ve Mimari
+## 🚀 Key Features
 
-Proje modern, hızlı ve güvenli bir teknoloji yığını (stack) kullanılarak geliştirilmiştir:
+Stellock goes beyond a simple smart contract application by adding 3 core layers focused on user experience:
 
-*   **SvelteKit:** Sistemin B2B arayüzünü (Reference App) simüle etmek için kullanılan son derece hızlı frontend framework'ü.
-*   **Stellar Network & Trustless Work:** Temel escrow (stellock) mantığı, paranın kilitlenmesi ve serbest bırakılması süreçleri için.
-*   **smart-account-kit:** Cüzdan altyapısını soyutlayarak (Account Abstraction) biyometrik imzalama (Passkey) süreçlerini yönetmek için.
-*   **Pinata (IPFS):** Merkeziyetsiz, sansürlenemez ve güvenli dosya depolama altyapısı.
-*   **Web Crypto API:** İstemci tarafında hızlı ve güvenli SHA-256 özetleme (hashing) işlemleri için.
+1. **Verifiable Delivery:** Instead of just claiming "I delivered the work", the delivered file itself is cryptographically proven (IPFS + SHA-256).
+2. **Privacy Layer (Commitment Scheme):** Commercial terms between parties are not written to the chain as plaintext. The terms are salted and hashed.
+3. **Seedless Access (Passkey):** Users do not need to memorize a *seed phrase* or install a browser wallet extension. Transactions are approved using Face ID / Touch ID biometric data.
 
 ---
 
-## 🔄 Sistem Nasıl İşliyor? (3 Aşamalı Akış)
+## 🛠 Technologies & Architecture
 
-Sistem uçtan uca şu şekilde çalışır:
+The project is developed using a modern, fast, and secure technology stack:
 
-### 1. Deposit (Para Kilitleme)
-*   **Alıcı (Müşteri)**, ödemek istediği USDC miktarını, karşı tarafı ve hizmet **koşullarını** girer.
-*   Sistem koşulları `SHA-256(koşullar + salt)` formatında hash'ler.
-*   Alıcı işlemi Face ID / Touch ID ile onaylar.
-*   Miktar ve sadece hash'lenmiş koşul (Privacy Hash) Trustless Work sözleşmesine kilitlenir. Zincirde şeffaf veri bulunmaz.
-
-### 2. Deliver (Teslimat ve Kanıt)
-*   **Satıcı (Freelancer)** işi tamamladığında dosyayı sisteme yükler.
-*   Dosya **IPFS ağına (Pinata)** yüklenir. Eş zamanlı olarak dosyanın SHA-256 özeti alınır.
-*   Dosya hash'i (Evidence Hash) Trustless Work sözleşmesinin `evidence` alanına işlenir. Satıcı teslimatı zincir üzerinde kanıtlamış olur.
-
-### 3. Release (Onay ve Ödeme)
-*   **Alıcı (Müşteri)** IPFS'ten indirdiği dosyayı sisteme geri yükler.
-*   Sistem yüklenen dosyanın hash'ini alır ve **zincirdeki hash ile karşılaştırır**.
-*   Dosyalar eşleşirse (hiçbir manipülasyon yoksa) sistem yeşil ışık yakar.
-*   Alıcı tekrar Face ID ile imza atar ve kilitli fonlar anında satıcının hesabına aktarılır.
+*   **SvelteKit:** Extremely fast frontend framework used to simulate the B2B interface (Reference App).
+*   **Stellar Network & Trustless Work:** For the core escrow logic, locking, and releasing funds.
+*   **smart-account-kit:** To manage biometric signing (Passkey) processes by abstracting the wallet infrastructure (Account Abstraction).
+*   **Pinata (IPFS):** Decentralized, censorship-resistant, and secure file storage infrastructure.
+*   **Web Crypto API:** For fast and secure client-side SHA-256 hashing operations.
 
 ---
 
-## 🛡 Privacy Track (Gizlilik Parkuru) İddiası
+## 🔄 How It Works (3-Step Flow)
 
-Bu proje hackathon'un **Privacy Track** yönergelerine tamamen uygundur. 
+The system works end-to-end as follows:
 
-Ticari sözleşme koşulları, miktar ve anlaşma detayları halka açık blok zincirine düz metin (**plaintext**) olarak kaydedilmez. Bunun yerine bir **Commitment Scheme** (Taahhüt Şeması) kullanılır. Sözleşme koşulları ve rastgele üretilen bir 'salt' birleştirilerek SHA-256 ile özetlenir (`hash(terms + salt)`) ve Trustless Work sözleşmesinin `description` alanına bu özet yazılır. Yalnızca salt değerini bilen taraflar sözleşmeyi doğrulayabilirken, zinciri izleyen 3. şahıslar ticari sırları göremez.
+### 1. Deposit (Locking Funds)
+*   The **Buyer (Client)** enters the amount of USDC they want to pay, the counterparty, and the service **terms**.
+*   The system hashes the terms in `SHA-256(terms + salt)` format.
+*   The Buyer approves the transaction via Face ID / Touch ID.
+*   The amount and only the hashed condition (Privacy Hash) are locked into the Trustless Work contract. No transparent data is placed on the chain.
+
+### 2. Deliver (Delivery & Proof)
+*   The **Seller (Freelancer)** uploads the file to the system once the work is completed.
+*   The file is uploaded to the **IPFS network (Pinata)**. Simultaneously, a SHA-256 hash of the file is generated.
+*   The file hash (Evidence Hash) is recorded in the `evidence` field of the Trustless Work contract. The Seller successfully proves the delivery on-chain.
+
+### 3. Release (Approval & Payment)
+*   The **Buyer (Client)** re-uploads the file downloaded from IPFS into the system.
+*   The system hashes the uploaded file and **compares it with the on-chain hash**.
+*   If the files match (meaning no manipulation occurred), the system gives the green light.
+*   The Buyer signs again with Face ID, and the locked funds are instantly transferred to the Seller's account.
 
 ---
 
-## 💻 Kurulum ve Çalıştırma
+## 🛡 Privacy Track Claim
 
-Projeyi yerel ortamınızda test etmek için:
+This project is fully compliant with the hackathon's **Privacy Track** guidelines.
+
+Commercial contract terms, amounts, and agreement details are not recorded as **plaintext** on the public blockchain. Instead, a **Commitment Scheme** is utilized. Contract terms and a randomly generated 'salt' are combined and hashed with SHA-256 (`hash(terms + salt)`), and this hash is written to the `description` field of the Trustless Work contract. While only the parties who know the salt value can verify the contract, third parties monitoring the chain cannot see the commercial secrets.
+
+---
+
+## 💻 Setup and Execution
+
+To test the project in your local environment:
 
 ```bash
-# 1. Repoyu klonlayın ve dizine girin
+# 1. Clone the repo and enter the directory
 git clone <repo-url>
 cd IBW26takim7
 
-# 2. Bağımlılıkları yükleyin
+# 2. Install dependencies
 npm install
 
-# 3. Ortam değişkenlerini ayarlayın
-# .env.example dosyasının adını .env yapın ve içine Pinata/Stellar bilgilerinizi girin.
+# 3. Set up environment variables
+# Rename the .env.example file to .env and enter your Pinata/Stellar details.
 cp .env.example .env
 
-# 4. Geliştirme sunucusunu başlatın
+# 4. Start the development server
 npm run dev
 ```
 
-Uygulama `http://localhost:5173` adresinde çalışacaktır. Önce **Register** ile hesap oluşturun, ardından Deposit -> Deliver -> Release sekmelerini takip ederek senaryoyu deneyimleyebilirsiniz.
+The application will be running at `http://localhost:5173`. First, create an account using **Register**, then experience the scenario by following the Deposit -> Deliver -> Release tabs.
 
 ---
 
-## 🔐 Hesap & Kimlik Modeli
+## 🔐 Account & Identity Model
 
-- **Deterministik cüzdan:** `username + password → PBKDF2 (100k iter) → Ed25519 keypair`. Seed phrase yok. Aynı kimlik bilgileri her zaman aynı cüzdanı üretir.
-- **Sunucu tarafı kayıt:** `username → publicKey` eşlemesi `data/users.json` içinde tutulur. Kayıtta username benzersizliği kontrol edilir; girişte türetilen publicKey kayıtlıyla eşleşmezse giriş reddedilir (yanlış şifre / olmayan kullanıcı ayrımı yapılır).
-- **Escrow muhasebesi:** Her escrow `data/escrows.json` içinde `buyer / seller / amount / status` ile izlenir. Release yalnızca escrow'u fonlayan buyer tarafından yapılabilir, tam kilitlenen tutar gönderilir, çift release engellenir.
+- **Deterministic wallet:** `username + password → PBKDF2 (100k iter) → Ed25519 keypair`. No seed phrase. The same credentials always generate the same wallet.
+- **Server-side registry:** The `username → publicKey` mapping is kept in `data/users.json`. Username uniqueness is checked during registration; if the derived publicKey during login doesn't match the registered one, access is denied (distinguishes between wrong password / non-existent user).
+- **Escrow accounting:** Each escrow is tracked in `data/escrows.json` with `buyer / seller / amount / status`. The Release action can only be performed by the buyer who funded the escrow, the exact locked amount is transferred, and double-releases are prevented.
 
-## 🔬 Zero-Knowledge Katmanı (Circom + Groth16)
+## 🔬 Zero-Knowledge Layer (Circom + Groth16)
 
-AES şifrelemenin yanında, **gerçek bir zk-SNARK** katmanı eklendi: alıcı, escrow miktarının anlaşılan bir aralıkta olduğunu — miktarı ifşa etmeden — kanıtlayabiliyor.
+In addition to AES encryption, a **real zk-SNARK** layer has been added: the buyer can prove that the escrow amount is within an agreed range — without revealing the amount itself.
 
 **Pipeline:**
-1. **Circom devresi** (`zk/circuits/amount_proof.circom`): `commitment = Poseidon(amount, salt)` **VE** `min ≤ amount ≤ max` kısıtlarını kodluyor.
+1. **Circom circuit** (`zk/circuits/amount_proof.circom`): Encodes the `commitment = Poseidon(amount, salt)` **AND** `min ≤ amount ≤ max` constraints.
 2. **Groth16 trusted setup** (snarkjs): powers-of-tau + circuit-specific zkey + verification key.
-3. **Tarayıcıda proof üretimi** (`src/lib/zk/prover.ts`): gizli miktar cihazdan hiç çıkmadan, ~270ms'de proof üretiliyor.
-4. **Sunucuda doğrulama** (`/api/zk/verify`): proof + public sinyaller (commitment, min, max) doğrulanıyor — sunucu miktarı asla görmüyor.
+3. **Browser-side proof generation** (`src/lib/zk/prover.ts`): Proof is generated in ~270ms without the secret amount ever leaving the device.
+4. **Server-side verification** (`/api/zk/verify`): The proof + public signals (commitment, min, max) are verified — the server never sees the amount.
 
-**Demo:** `/zk` sayfası. Gizli miktar gir → tarayıcıda Groth16 proof üret → sunucuda doğrula. Aralık dışı miktar için devre kısıtı proof üretimini engelliyor (matematiksel garanti).
+**Demo:** `/zk` page. Enter a secret amount → generate Groth16 proof in the browser → verify on the server. The circuit constraint mathematically prevents proof generation for out-of-range amounts.
 
-**Sonraki adım (on-chain):** Şu an doğrulama sunucu tarafında (snarkjs). Stellar Protocol 22+ BLS12-381 host fonksiyonlarıyla bir Soroban Groth16 verifier kontratı yazılabilir — devre bn128 yerine bls12-381'e taşınır (circomlib Poseidon yerine alan-bağımsız bir taahhüt gerekir).
+**Next step (on-chain):** Currently, verification is server-side (snarkjs). With Stellar Protocol 22+ BLS12-381 host functions, a Soroban Groth16 verifier contract can be written — the circuit would be migrated from bn128 to bls12-381 (requiring a field-agnostic commitment instead of circomlib's Poseidon).
 
-## ⚠️ Bilinen Sınırlamalar (Hackathon kapsamı)
+## ⚠️ Known Limitations (Hackathon Scope)
 
-- **İmzalama sunucu tarafında:** Kullanıcı `secretKey`'i imzalama için sunucu endpoint'lerine gönderilir. Tarayıcıda Stellar SDK polyfill çakışması yaşandığı için bu yol seçildi. Üretimde imzalama tamamen istemci tarafında (veya gerçek Passkey/WebAuthn ile) yapılmalıdır.
-- **Passkey simülasyonu:** `smart-account-kit` kurulu ancak biyometrik imza şu an simüle ediliyor (deterministik SHA-256). Gerçek WebAuthn entegrasyonu için kontrat altyapısı (`accountWasmHash`, `webauthnVerifierAddress`) gerekiyor.
-- **Tek escrow vault:** Tüm escrow'lar tek bir testnet vault hesabında tutuluyor; muhasebe kayıt dosyasıyla (off-chain) yapılıyor. Üretimde her escrow Soroban kontratı seviyesinde izole edilmeli (Trustless Work'ün asıl modeli).
-- **Yerel JSON depolama:** `data/` altındaki dosyalar bir veritabanı değil; tek sunucu örneği için uygundur.
+- **Server-side signing:** The user's `secretKey` is sent to server endpoints for signing. This route was chosen due to Stellar SDK polyfill conflicts in the browser. In production, signing should be done entirely client-side (or with real Passkey/WebAuthn).
+- **Passkey simulation:** `smart-account-kit` is installed, but the biometric signature is currently simulated (deterministic SHA-256). Actual WebAuthn integration requires contract infrastructure (`accountWasmHash`, `webauthnVerifierAddress`).
+- **Single escrow vault:** All escrows are kept in a single testnet vault account; accounting is done via a record file (off-chain). In production, each escrow should be isolated at the Soroban contract level (the core model of Trustless Work).
+- **Local JSON storage:** Files under `data/` are not a database; they are suitable only for a single server instance.
